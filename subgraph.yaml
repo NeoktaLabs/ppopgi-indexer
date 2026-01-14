@@ -1,0 +1,100 @@
+specVersion: 0.0.5
+schema:
+  file: ./schema.graphql
+
+dataSources:
+  - kind: ethereum
+    name: LotteryRegistry
+    network: etherlink
+    source:
+      address: "0xYOUR_REGISTRY_ADDRESS"
+      abi: LotteryRegistry
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - RegistryConfig
+        - RegistrarAuthorization
+        - Raffle
+        - RaffleEvent
+      abis:
+        - name: LotteryRegistry
+          file: ./abis/LotteryRegistry.json
+      eventHandlers:
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleRegistryOwnershipTransferred
+        - event: RegistrarSet(indexed address,bool)
+          handler: handleRegistrarSet
+        - event: LotteryRegistered(indexed uint256,indexed uint256,indexed address,address)
+          handler: handleLotteryRegistered
+      file: ./src/registry.ts
+
+  - kind: ethereum
+    name: SingleWinnerDeployer
+    network: etherlink
+    source:
+      address: "0xYOUR_DEPLOYER_ADDRESS"
+      abi: SingleWinnerDeployer
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - FactoryConfig
+        - Raffle
+        - RaffleEvent
+      abis:
+        - name: SingleWinnerDeployer
+          file: ./abis/SingleWinnerDeployer.json
+      eventHandlers:
+        - event: DeployerOwnershipTransferred(indexed address,indexed address)
+          handler: handleDeployerOwnershipTransferred
+        - event: ConfigUpdated(address,address,address,address,uint256)
+          handler: handleConfigUpdated
+        - event: LotteryDeployed(indexed address,indexed address,uint256,uint256,string,address,address,address,address,uint256,uint64,uint64,uint64)
+          handler: handleLotteryDeployed
+        - event: RegistrationFailed(indexed address,indexed address)
+          handler: handleRegistrationFailed
+      file: ./src/factory.ts
+
+templates:
+  - kind: ethereum
+    name: LotterySingleWinner
+    network: etherlink
+    source:
+      abi: LotterySingleWinner
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Raffle
+        - RaffleEvent
+      abis:
+        - name: LotterySingleWinner
+          file: ./abis/LotterySingleWinner.json
+      eventHandlers:
+        - event: FundingConfirmed(indexed address,uint256)
+          handler: handleFundingConfirmed
+        - event: TicketsPurchased(indexed address,uint256,uint256,uint256,uint256,bool)
+          handler: handleTicketsPurchased
+        - event: LotteryFinalized(uint64,uint256,address)
+          handler: handleLotteryFinalized
+        - event: WinnerPicked(indexed address,uint256,uint256)
+          handler: handleWinnerPicked
+        - event: LotteryCanceled(string,uint256,uint256,uint256)
+          handler: handleLotteryCanceled
+
+        # OpenZeppelin Ownable
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleRaffleOwnershipTransferred
+
+        # OpenZeppelin Pausable
+        - event: Paused(address)
+          handler: handlePaused
+        - event: Unpaused(address)
+          handler: handleUnpaused
+      file: ./src/raffle.ts
