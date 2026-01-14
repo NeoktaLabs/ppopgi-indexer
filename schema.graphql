@@ -1,4 +1,4 @@
-# schema.graphql — future-proof superset
+# schema.graphql — UPDATED for your contracts + UI needs (safe superset)
 
 enum RaffleStatus {
   OPEN
@@ -10,7 +10,7 @@ enum RaffleStatus {
 type Raffle @entity {
   id: Bytes!
 
-  # canonical discovery
+  # --- canonical discovery (LotteryRegistry) ---
   isRegistered: Boolean!
   registry: Bytes
   registryIndex: BigInt
@@ -20,18 +20,17 @@ type Raffle @entity {
   registeredTxHash: Bytes
   registrationFailed: Boolean!
 
-  # provenance
+  # --- provenance ---
   deployer: Bytes!
   creator: Bytes!
-  owner: Bytes!
-  safeOwner: Bytes
+  owner: Bytes!          # used for Admin button gating
   name: String!
 
   createdAtTimestamp: BigInt!
   createdAtBlock: BigInt!
   createdTxHash: Bytes!
 
-  # config
+  # --- config (from LotteryDeployed, plus one-time reads) ---
   usdc: Bytes!
   entropy: Bytes!
   entropyProvider: Bytes!
@@ -43,17 +42,17 @@ type Raffle @entity {
   deadline: BigInt!
   minTickets: BigInt!
   maxTickets: BigInt!
-  minPurchaseAmount: BigInt
+  minPurchaseAmount: BigInt!  # read once at creation via getter
 
-  # state (display-only; still confirm on-chain before tx)
+  # --- state (display-only; confirm on-chain before signing) ---
   status: RaffleStatus!
   paused: Boolean!
 
-  # display-only analytics
+  # --- display analytics (optional) ---
   sold: BigInt
   ticketRevenue: BigInt
 
-  # draw transparency
+  # --- draw transparency ---
   finalizeRequestId: BigInt
   selectedProvider: Bytes
   soldAtDrawing: BigInt
@@ -61,24 +60,24 @@ type Raffle @entity {
   finalizedAt: BigInt
   finalizedTxHash: Bytes
 
-  # winner transparency
+  # --- winner transparency ---
   winner: Bytes
   winningTicketIndex: BigInt
   completedAt: BigInt
   winnerTxHash: Bytes
 
-  # cancel transparency
+  # --- cancel transparency ---
   canceledReason: String
   soldAtCancel: BigInt
   potRefund: BigInt
   canceledAt: BigInt
   canceledTxHash: Bytes
 
-  # funding transparency
+  # --- funding transparency ---
   fundingConfirmedAt: BigInt
   fundingConfirmedTxHash: Bytes
 
-  # indexing metadata
+  # --- indexing metadata ---
   indexedAtBlock: BigInt!
   indexedAtTimestamp: BigInt!
   lastEventId: ID
@@ -86,11 +85,9 @@ type Raffle @entity {
 
 type FactoryConfig @entity {
   id: Bytes!
-
   owner: Bytes!
-  registry: Bytes!
-  safeOwner: Bytes!
 
+  # defaults emitted by ConfigUpdated
   usdc: Bytes!
   entropy: Bytes!
   entropyProvider: Bytes!
@@ -131,6 +128,7 @@ type RaffleEvent @entity {
   timestamp: BigInt!
   txHash: Bytes!
 
+  # optional payloads (kept flexible)
   buyer: Bytes
   count: BigInt
   totalCost: BigInt
