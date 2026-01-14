@@ -1,4 +1,6 @@
+# subgraph.yaml — UPDATED to match your contracts + deploy flow
 specVersion: 0.0.5
+
 schema:
   file: ./schema.graphql
 
@@ -49,6 +51,9 @@ dataSources:
       abis:
         - name: SingleWinnerDeployer
           file: ./abis/SingleWinnerDeployer.json
+        # IMPORTANT: for creation-time reads (owner/minPurchaseAmount/etc) in factory mapping
+        - name: LotterySingleWinner
+          file: ./abis/LotterySingleWinner.json
       eventHandlers:
         - event: DeployerOwnershipTransferred(indexed address,indexed address)
           handler: handleDeployerOwnershipTransferred
@@ -77,6 +82,8 @@ templates:
         - name: LotterySingleWinner
           file: ./abis/LotterySingleWinner.json
       eventHandlers:
+        # NOTE: FundingConfirmed usually happens BEFORE LotteryDeployed in the same tx,
+        # so the template will likely miss it. We set fundingConfirmedAt in handleLotteryDeployed.
         - event: FundingConfirmed(indexed address,uint256)
           handler: handleFundingConfirmed
         - event: TicketsPurchased(indexed address,uint256,uint256,uint256,uint256,bool)
@@ -88,11 +95,11 @@ templates:
         - event: LotteryCanceled(string,uint256,uint256,uint256)
           handler: handleLotteryCanceled
 
-        # OpenZeppelin Ownable
+        # OZ Ownable
         - event: OwnershipTransferred(indexed address,indexed address)
           handler: handleRaffleOwnershipTransferred
 
-        # OpenZeppelin Pausable
+        # OZ Pausable
         - event: Paused(address)
           handler: handlePaused
         - event: Unpaused(address)
