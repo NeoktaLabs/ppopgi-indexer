@@ -1,0 +1,151 @@
+# schema.graphql — future-proof superset
+
+enum RaffleStatus {
+  OPEN
+  DRAWING
+  COMPLETED
+  CANCELED
+}
+
+type Raffle @entity {
+  id: Bytes!
+
+  # canonical discovery
+  isRegistered: Boolean!
+  registry: Bytes
+  registryIndex: BigInt
+  typeId: BigInt
+  registryCreator: Bytes
+  registeredAt: BigInt
+  registeredTxHash: Bytes
+  registrationFailed: Boolean!
+
+  # provenance
+  deployer: Bytes!
+  creator: Bytes!
+  owner: Bytes!
+  safeOwner: Bytes
+  name: String!
+
+  createdAtTimestamp: BigInt!
+  createdAtBlock: BigInt!
+  createdTxHash: Bytes!
+
+  # config
+  usdc: Bytes!
+  entropy: Bytes!
+  entropyProvider: Bytes!
+  feeRecipient: Bytes!
+  protocolFeePercent: BigInt!
+
+  ticketPrice: BigInt!
+  winningPot: BigInt!
+  deadline: BigInt!
+  minTickets: BigInt!
+  maxTickets: BigInt!
+  minPurchaseAmount: BigInt
+
+  # state (display-only; still confirm on-chain before tx)
+  status: RaffleStatus!
+  paused: Boolean!
+
+  # display-only analytics
+  sold: BigInt
+  ticketRevenue: BigInt
+
+  # draw transparency
+  finalizeRequestId: BigInt
+  selectedProvider: Bytes
+  soldAtDrawing: BigInt
+  drawRequestedAt: BigInt
+  finalizedAt: BigInt
+  finalizedTxHash: Bytes
+
+  # winner transparency
+  winner: Bytes
+  winningTicketIndex: BigInt
+  completedAt: BigInt
+  winnerTxHash: Bytes
+
+  # cancel transparency
+  canceledReason: String
+  soldAtCancel: BigInt
+  potRefund: BigInt
+  canceledAt: BigInt
+  canceledTxHash: Bytes
+
+  # funding transparency
+  fundingConfirmedAt: BigInt
+  fundingConfirmedTxHash: Bytes
+
+  # indexing metadata
+  indexedAtBlock: BigInt!
+  indexedAtTimestamp: BigInt!
+  lastEventId: ID
+}
+
+type FactoryConfig @entity {
+  id: Bytes!
+
+  owner: Bytes!
+  registry: Bytes!
+  safeOwner: Bytes!
+
+  usdc: Bytes!
+  entropy: Bytes!
+  entropyProvider: Bytes!
+  feeRecipient: Bytes!
+  protocolFeePercent: BigInt!
+
+  updatedAtBlock: BigInt!
+  updatedAtTimestamp: BigInt!
+  updatedTxHash: Bytes
+}
+
+type RegistryConfig @entity {
+  id: Bytes!
+  owner: Bytes!
+  totalRegistered: BigInt
+
+  updatedAtBlock: BigInt!
+  updatedAtTimestamp: BigInt!
+  updatedTxHash: Bytes
+}
+
+type RegistrarAuthorization @entity {
+  id: ID!
+  registry: Bytes!
+  registrar: Bytes!
+  authorized: Boolean!
+
+  updatedAtBlock: BigInt!
+  updatedAtTimestamp: BigInt!
+  txHash: Bytes!
+}
+
+type RaffleEvent @entity {
+  id: ID!
+  raffle: Bytes!
+  kind: String!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: Bytes!
+
+  buyer: Bytes
+  count: BigInt
+  totalCost: BigInt
+  totalSold: BigInt
+
+  requestId: BigInt
+  provider: Bytes
+
+  winner: Bytes
+  winningTicketIndex: BigInt
+
+  canceledReason: String
+  potRefund: BigInt
+  ticketRevenue: BigInt
+
+  oldOwner: Bytes
+  newOwner: Bytes
+}
