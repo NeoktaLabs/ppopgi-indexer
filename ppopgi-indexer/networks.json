@@ -1,0 +1,8 @@
+{
+  "etherlink-mainnet": {
+    "SingleWinnerDeployer": {
+      "address": "0x6050196520e7010Aa39C8671055B674851E2426D",
+      "startBlock": 36324588
+    }
+  }
+}
