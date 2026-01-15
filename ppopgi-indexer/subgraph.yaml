@@ -1,9 +1,17 @@
 specVersion: 1.3.0
+
 indexerHints:
   prune: auto
+
 schema:
   file: ./schema.graphql
+
 dataSources:
+  # ------------------------------------------------------------
+  # 1) Factory / Deployer (bootstrap)
+  #   - Discovers lotteries via LotteryDeployed
+  #   - Creates dynamic data sources (templates) per lottery
+  # ------------------------------------------------------------
   - kind: ethereum
     name: SingleWinnerDeployer
     network: etherlink-mainnet
@@ -16,10 +24,10 @@ dataSources:
       apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
-        - ConfigUpdated
-        - DeployerOwnershipTransferred
-        - LotteryDeployed
-        - RegistrationFailed
+        # These are NOT entity names you must use; just a hint list.
+        # Your real entities live in schema.graphql (ex: Raffle, FactoryConfig, etc.)
+        - Raffle
+        - FactoryConfig
       abis:
         - name: SingleWinnerDeployer
           file: ./abis/SingleWinnerDeployer.json
@@ -33,3 +41,76 @@ dataSources:
         - event: RegistrationFailed(indexed address,indexed address)
           handler: handleRegistrationFailed
       file: ./src/single-winner-deployer.ts
+
+  # ------------------------------------------------------------
+  # 2) Registry (canonical “official list”)
+  #   - Confirms registration + provides registeredAt timestamp
+  # ------------------------------------------------------------
+  - kind: ethereum
+    name: LotteryRegistry
+    network: etherlink-mainnet
+    source:
+      address: "REPLACE_ME_WITH_YOUR_REGISTRY_ADDRESS"
+      abi: LotteryRegistry
+      startBlock: REPLACE_ME_WITH_REGISTRY_START_BLOCK
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Raffle
+      abis:
+        - name: LotteryRegistry
+          file: ./abis/LotteryRegistry.json
+      eventHandlers:
+        - event: LotteryRegistered(indexed uint256,indexed uint256,indexed address,address)
+          handler: handleLotteryRegistered
+        - event: RegistrarSet(indexed address,bool)
+          handler: handleRegistrarSet
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleRegistryOwnershipTransferred
+      file: ./src/lottery-registry.ts
+
+# ------------------------------------------------------------
+# 3) Templates (dynamic data sources)
+#   - A template is instantiated for each LotteryDeployed.lottery
+#   - This is how you index all lotteries without listing addresses
+# ------------------------------------------------------------
+templates:
+  - kind: ethereum
+    name: LotterySingleWinner
+    network: etherlink-mainnet
+    source:
+      abi: LotterySingleWinner
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Raffle
+        - RaffleEvent
+      abis:
+        - name: LotterySingleWinner
+          file: ./abis/LotterySingleWinner.json
+      eventHandlers:
+        - event: TicketsPurchased(indexed address,uint256,uint256,uint256,uint256,bool)
+          handler: handleTicketsPurchased
+        - event: LotteryFinalized(uint64,uint256,address)
+          handler: handleLotteryFinalized
+        - event: WinnerPicked(indexed address,uint256,uint256)
+          handler: handleWinnerPicked
+        - event: LotteryCanceled(string,uint256,uint256,uint256)
+          handler: handleLotteryCanceled
+        - event: PrizeAllocated(indexed address,uint256,indexed uint8)
+          handler: handlePrizeAllocated
+        - event: GovernanceLockUpdated(uint256)
+          handler: handleGovernanceLockUpdated
+        - event: EntropyProviderUpdated(address)
+          handler: handleEntropyProviderUpdated
+        - event: EntropyContractUpdated(address)
+          handler: handleEntropyContractUpdated
+        - event: Paused(address)
+          handler: handlePaused
+        - event: Unpaused(address)
+          handler: handleUnpaused
+      file: ./src/lottery-single-winner.ts
