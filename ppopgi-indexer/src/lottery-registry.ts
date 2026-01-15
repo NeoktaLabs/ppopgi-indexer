@@ -5,13 +5,7 @@ import {
   OwnershipTransferred as OwnershipTransferredEvent
 } from "../generated/LotteryRegistry/LotteryRegistry"
 
-import {
-  Raffle,
-  Registrar,
-  RegistryOwner,
-  RaffleEventType,
-  RaffleStatus
-} from "../generated/schema"
+import { Raffle, Registrar, RegistryOwner } from "../generated/schema"
 
 import { LotterySingleWinner as LotterySingleWinnerTemplate } from "../generated/templates"
 
@@ -43,12 +37,15 @@ export function handleLotteryRegistered(event: LotteryRegisteredEvent): void {
     raffle.minTickets = BigInt.zero()
     raffle.maxTickets = BigInt.zero()
 
-    // ✅ Correct enum usage
-    raffle.status = RaffleStatus.OPEN
+    // ✅ Use string enum value (GraphQL enum stored as string)
+    raffle.status = "OPEN"
 
     raffle.sold = BigInt.zero()
     raffle.ticketRevenue = BigInt.zero()
     raffle.paused = false
+
+    // For new entities created here, be explicit
+    raffle.isRegistered = false
   }
 
   // Always update registry-related metadata
@@ -61,11 +58,11 @@ export function handleLotteryRegistered(event: LotteryRegisteredEvent): void {
   touchRaffle(raffle, event)
   raffle.save()
 
-  // ✅ CRITICAL: always create the template so this lottery is indexed,
+  // ✅ Always create the template so this lottery is indexed,
   // even if deployer events were missed earlier.
   LotterySingleWinnerTemplate.create(raffleId)
 
-  let ev = createRaffleEvent(raffleId, RaffleEventType.LOTTERY_REGISTERED, event)
+  let ev = createRaffleEvent(raffleId, "LOTTERY_REGISTERED", event)
   ev.actor = event.params.creator
   ev.uintValue = event.params.typeId
   ev.save()
