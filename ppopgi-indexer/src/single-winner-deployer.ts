@@ -1,174 +1,129 @@
-import { Address, BigInt, Bytes } from "@graphprotocol/graph-ts";
-
+import { Address, BigInt } from "@graphprotocol/graph-ts"
 import {
   ConfigUpdated as ConfigUpdatedEvent,
   DeployerOwnershipTransferred as DeployerOwnershipTransferredEvent,
   LotteryDeployed as LotteryDeployedEvent,
-  RegistrationFailed as RegistrationFailedEvent,
-} from "../generated/SingleWinnerDeployer/SingleWinnerDeployer";
+  RegistrationFailed as RegistrationFailedEvent
+} from "../generated/SingleWinnerDeployer/SingleWinnerDeployer"
 
-import { LotterySingleWinner as LotteryTemplate } from "../generated/templates";
+import { LotterySingleWinner as LotterySingleWinnerTemplate } from "../generated/templates"
 
 import {
   FactoryConfig,
-  Raffle,
-  RaffleEvent,
   DeployerOwner,
-} from "../generated/schema";
+  Raffle,
+  RaffleStatus,
+  RaffleEventType
+} from "../generated/schema"
 
-function raffleId(addr: Address): Bytes {
-  return addr as Bytes;
-}
-
-function eventId(tx: Bytes, logIndex: BigInt): string {
-  return tx.toHexString() + "-" + logIndex.toString();
-}
+import { createRaffleEvent, touchRaffle } from "./utils"
 
 export function handleConfigUpdated(event: ConfigUpdatedEvent): void {
-  let id = event.address as Bytes; // deployer address as ID
-  let cfg = FactoryConfig.load(id);
+  let id = event.address as Address
+
+  let cfg = FactoryConfig.load(id)
   if (cfg == null) {
-    cfg = new FactoryConfig(id);
+    cfg = new FactoryConfig(id)
   }
 
-  cfg.usdc = event.params.usdc;
-  cfg.entropy = event.params.entropy;
-  cfg.entropyProvider = event.params.provider;
-  cfg.feeRecipient = event.params.feeRecipient;
-  cfg.protocolFeePercent = event.params.protocolFeePercent;
+  cfg.usdc = event.params.usdc
+  cfg.entropy = event.params.entropy
+  cfg.provider = event.params.provider
+  cfg.feeRecipient = event.params.feeRecipient
+  cfg.protocolFeePercent = event.params.protocolFeePercent
+  cfg.updatedAtBlock = event.block.number
+  cfg.updatedAtTimestamp = event.block.timestamp
+  cfg.updatedTx = event.transaction.hash
+  cfg.save()
 
-  cfg.updatedAtBlock = event.block.number;
-  cfg.updatedAtTimestamp = event.block.timestamp;
-  cfg.lastUpdatedTx = event.transaction.hash;
-
-  cfg.save();
-
-  // Optional audit event
-  let ev = new RaffleEvent(eventId(event.transaction.hash, event.logIndex));
-  ev.raffle = Bytes.empty(); // no specific raffle
-  ev.type = "FACTORY_CONFIG_UPDATED";
-  ev.blockNumber = event.block.number;
-  ev.blockTimestamp = event.block.timestamp;
-  ev.transactionHash = event.transaction.hash;
-  ev.addressValue = event.params.feeRecipient;
-  ev.aux = event.params.protocolFeePercent;
-  ev.save();
+  // Optional: write a global audit event? (not tied to a raffle)
+  // We keep audit events tied to raffles only.
 }
 
 export function handleDeployerOwnershipTransferred(
   event: DeployerOwnershipTransferredEvent
 ): void {
-  let owner = DeployerOwner.load("DEPLOYER_OWNER");
-  if (owner == null) {
-    owner = new DeployerOwner("DEPLOYER_OWNER");
+  let id = event.address as Address
+
+  let d = DeployerOwner.load(id)
+  if (d == null) {
+    d = new DeployerOwner(id)
   }
 
-  owner.owner = event.params.newOwner;
-  owner.updatedAtBlock = event.block.number;
-  owner.updatedAtTimestamp = event.block.timestamp;
-  owner.lastUpdatedTx = event.transaction.hash;
-  owner.save();
-
-  // Optional audit event
-  let ev = new RaffleEvent(eventId(event.transaction.hash, event.logIndex));
-  ev.raffle = Bytes.empty();
-  ev.type = "DEPLOYER_OWNER_CHANGED";
-  ev.actor = event.params.newOwner;
-  ev.blockNumber = event.block.number;
-  ev.blockTimestamp = event.block.timestamp;
-  ev.transactionHash = event.transaction.hash;
-  ev.save();
+  d.owner = event.params.newOwner
+  d.updatedAtBlock = event.block.number
+  d.updatedAtTimestamp = event.block.timestamp
+  d.updatedTx = event.transaction.hash
+  d.save()
 }
 
 export function handleLotteryDeployed(event: LotteryDeployedEvent): void {
-  // 1) Create / update the main Raffle row
-  let id = raffleId(event.params.lottery);
-  let r = Raffle.load(id);
+  let raffleId = event.params.lottery
 
-  if (r == null) {
-    r = new Raffle(id);
+  let raffle = Raffle.load(raffleId)
+  if (raffle == null) {
+    raffle = new Raffle(raffleId)
 
-    r.deployer = event.address; // deployer address
-    r.registry = null;
-    r.isRegistered = false;
-    r.typeId = null;
-    r.registryIndex = null;
-    r.registeredAt = null;
+    // canonical discovery
+    raffle.deployer = event.address
+    raffle.isRegistered = false
+    raffle.paused = false
 
-    r.createdAt = event.block.timestamp;
-    r.deploymentTx = event.transaction.hash;
+    // immutable creation metadata
+    raffle.creator = event.params.creator
+    raffle.name = event.params.name
+    raffle.createdAtBlock = event.block.number
+    raffle.createdAtTimestamp = event.block.timestamp
+    raffle.creationTx = event.transaction.hash
 
-    // Event-derived defaults
-    r.status = "OPEN"; // after confirmFunding in deployer flow
-    r.paused = false;
-    r.lastPauseChangedAt = null;
+    raffle.usdc = event.params.usdc
+    raffle.entropy = event.params.entropy
+    raffle.entropyProvider = event.params.entropyProvider
+    raffle.feeRecipient = event.params.feeRecipient
+    raffle.protocolFeePercent = event.params.protocolFeePercent
 
-    r.sold = BigInt.zero();
-    r.soldAtDrawing = null;
-    r.soldAtCancel = null;
-    r.ticketRevenue = BigInt.zero();
+    raffle.winningPot = event.params.winningPot
+    raffle.ticketPrice = event.params.ticketPrice
+    raffle.deadline = BigInt.fromU64(event.params.deadline)
+    raffle.minTickets = BigInt.fromU64(event.params.minTickets)
+    raffle.maxTickets = BigInt.fromU64(event.params.maxTickets)
 
-    r.winner = null;
-    r.winningTicketIndex = null;
-    r.completedAt = null;
+    // lifecycle defaults
+    raffle.status = RaffleStatus.OPEN
+    raffle.sold = BigInt.zero()
+    raffle.ticketRevenue = BigInt.zero()
+    raffle.winner = null
+    raffle.winningTicketIndex = null
+    raffle.finalizeRequestId = null
+    raffle.finalizedAt = null
+    raffle.selectedProvider = null
+    raffle.completedAt = null
+    raffle.canceledReason = null
+    raffle.canceledAt = null
+    raffle.soldAtCancel = null
 
-    r.selectedProvider = null;
-    r.finalizeRequestId = null;
-    r.drawingRequestedAt = null;
-    r.callbackRejectedCount = BigInt.zero();
+    touchRaffle(raffle, event)
+    raffle.save()
 
-    r.canceledReason = null;
-    r.canceledAt = null;
-    r.potRefund = null;
+    // Create template to index this lottery instance
+    LotterySingleWinnerTemplate.create(raffleId)
+  } else {
+    // If already exists, still touch
+    touchRaffle(raffle, event)
+    raffle.save()
   }
 
-  r.creator = event.params.creator;
-  r.name = event.params.name;
-
-  r.winningPot = event.params.winningPot;
-  r.ticketPrice = event.params.ticketPrice;
-
-  r.usdc = event.params.usdc;
-  r.entropy = event.params.entropy;
-  r.entropyProvider = event.params.entropyProvider;
-  r.feeRecipient = event.params.feeRecipient;
-  r.protocolFeePercent = event.params.protocolFeePercent;
-
-  r.deadline = event.params.deadline;
-  r.minTickets = event.params.minTickets;
-  r.maxTickets = event.params.maxTickets;
-
-  r.indexedAtBlock = event.block.number;
-  r.indexedAtTimestamp = event.block.timestamp;
-  r.lastUpdatedTx = event.transaction.hash;
-
-  r.save();
-
-  // 2) Create an audit event row (optional but great for "not a scam" UX)
-  let ev = new RaffleEvent(eventId(event.transaction.hash, event.logIndex));
-  ev.raffle = id;
-  ev.type = "DEPLOYED";
-  ev.actor = event.params.creator;
-  ev.amount = event.params.winningPot; // pot size
-  ev.aux = event.params.ticketPrice; // ticket price
-  ev.addressValue = event.params.feeRecipient;
-  ev.blockNumber = event.block.number;
-  ev.blockTimestamp = event.block.timestamp;
-  ev.transactionHash = event.transaction.hash;
-  ev.save();
-
-  // 3) Instantiate the dynamic template so we index this lottery’s events
-  LotteryTemplate.create(event.params.lottery);
+  // audit event
+  let ev = createRaffleEvent(raffleId, RaffleEventType.LOTTERY_DEPLOYED, event)
+  ev.actor = event.params.creator
+  ev.save()
 }
 
 export function handleRegistrationFailed(event: RegistrationFailedEvent): void {
-  // Optional audit event: shows registry failure happened
-  let ev = new RaffleEvent(eventId(event.transaction.hash, event.logIndex));
-  ev.raffle = raffleId(event.params.lottery);
-  ev.type = "REGISTRATION_FAILED";
-  ev.actor = event.params.creator;
-  ev.blockNumber = event.block.number;
-  ev.blockTimestamp = event.block.timestamp;
-  ev.transactionHash = event.transaction.hash;
-  ev.save();
+  let raffleId = event.params.lottery
+
+  // audit event (even if raffle doesn't exist yet, but it should)
+  let ev = createRaffleEvent(raffleId, RaffleEventType.REGISTRATION_FAILED, event)
+  ev.actor = event.params.creator
+  ev.save()
 }
