@@ -1,7 +1,8 @@
-import { Address, BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts"
-import { RaffleEvent, RaffleEventType, Raffle } from "../generated/schema"
+import { BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts"
+import { RaffleEvent, Raffle } from "../generated/schema"
 
 export function eventId(event: ethereum.Event): Bytes {
+  // Unique per log: txHash + logIndex
   return event.transaction.hash.concatI32(event.logIndex.toI32())
 }
 
@@ -12,15 +13,19 @@ export function touchRaffle(raffle: Raffle, event: ethereum.Event): void {
 
 export function createRaffleEvent(
   raffleId: Bytes,
-  t: RaffleEventType,
+  t: string,
   event: ethereum.Event
 ): RaffleEvent {
   let e = new RaffleEvent(eventId(event))
   e.raffle = raffleId
   e.type = t
+
   e.blockNumber = event.block.number
   e.blockTimestamp = event.block.timestamp
   e.txHash = event.transaction.hash
-  e.logIndex = BigInt.fromI32(event.logIndex.toI32())
+
+  // event.logIndex is already a BigInt in graph-ts
+  e.logIndex = event.logIndex
+
   return e
 }
