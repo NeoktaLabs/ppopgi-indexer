@@ -9,8 +9,11 @@ import {
   Raffle,
   Registrar,
   RegistryOwner,
-  RaffleEventType
+  RaffleEventType,
+  RaffleStatus
 } from "../generated/schema"
+
+import { LotterySingleWinner as LotterySingleWinnerTemplate } from "../generated/templates"
 
 import { createRaffleEvent, touchRaffle } from "./utils"
 
@@ -18,10 +21,13 @@ export function handleLotteryRegistered(event: LotteryRegisteredEvent): void {
   let raffleId = event.params.lottery
 
   let raffle = Raffle.load(raffleId)
+  let isNew = false
+
   if (raffle == null) {
-    // It’s okay to create it here too (in case deployer indexing started later).
-    // But it will be missing deployer metadata; that’s acceptable fallback.
+    // Fallback: create raffle discovered via registry (in case deployer indexing started later).
     raffle = new Raffle(raffleId)
+    isNew = true
+
     raffle.creator = event.params.creator
     raffle.name = "Unnamed"
     raffle.createdAtBlock = event.block.number
@@ -39,11 +45,16 @@ export function handleLotteryRegistered(event: LotteryRegisteredEvent): void {
     raffle.minTickets = BigInt.zero()
     raffle.maxTickets = BigInt.zero()
 
-    raffle.status = 1 // OPEN (enum index) — but we’ll set properly below
+    // ✅ Fix: avoid numeric enum assignment
+    raffle.status = RaffleStatus.OPEN
+
     raffle.sold = BigInt.zero()
     raffle.ticketRevenue = BigInt.zero()
     raffle.isRegistered = true
     raffle.paused = false
+  } else {
+    // If the raffle already exists (e.g., created from deployer events),
+    // just ensure it's marked registered + registry metadata updated below.
   }
 
   raffle.registry = event.address
@@ -54,6 +65,15 @@ export function handleLotteryRegistered(event: LotteryRegisteredEvent): void {
 
   touchRaffle(raffle, event)
   raffle.save()
+
+  // ✅ Fix: ensure we start indexing this lottery even if it was discovered via the registry.
+  // This prevents "registered but never indexed" raffles when deployer events were missed.
+  if (isNew) {
+    LotterySingleWinnerTemplate.create(raffleId)
+  } else {
+    // Optional: you can still create unconditionally; The Graph will typically dedupe template creation.
+    // LotterySingleWinnerTemplate.create(raffleId)
+  }
 
   let ev = createRaffleEvent(raffleId, RaffleEventType.LOTTERY_REGISTERED, event)
   ev.actor = event.params.creator
