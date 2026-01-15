@@ -55,7 +55,7 @@ enum RaffleEventType {
 One deployed lottery instance (LotterySingleWinner).
 ID = lottery contract address (Bytes)
 """
-type Raffle @entity {
+type Raffle @entity(immutable: false) {
   id: Bytes!
 
   # --- canonical discovery
@@ -116,7 +116,7 @@ type Raffle @entity {
 Factory config (SingleWinnerDeployer.ConfigUpdated).
 ID = deployer address (Bytes)
 """
-type FactoryConfig @entity {
+type FactoryConfig @entity(immutable: false) {
   id: Bytes!
   usdc: Bytes!
   entropy: Bytes!
@@ -132,7 +132,7 @@ type FactoryConfig @entity {
 # Admin / ownership tracking (optional but useful for UI)
 ###############################################################################
 
-type DeployerOwner @entity {
+type DeployerOwner @entity(immutable: false) {
   id: Bytes! # deployer address
   owner: Bytes!
   updatedAtBlock: BigInt!
@@ -140,7 +140,7 @@ type DeployerOwner @entity {
   updatedTx: Bytes!
 }
 
-type RegistryOwner @entity {
+type RegistryOwner @entity(immutable: false) {
   id: Bytes! # registry address
   owner: Bytes!
   updatedAtBlock: BigInt!
@@ -148,7 +148,7 @@ type RegistryOwner @entity {
   updatedTx: Bytes!
 }
 
-type Registrar @entity {
+type Registrar @entity(immutable: false) {
   id: Bytes! # registrar address
   registry: Bytes!
   authorized: Boolean!
@@ -161,7 +161,7 @@ type Registrar @entity {
 # Audit trail / transparency events (for “shield modal”)
 ###############################################################################
 
-type RaffleEvent @entity {
+type RaffleEvent @entity(immutable: true) {
   id: Bytes!
   raffle: Raffle!
   type: RaffleEventType!
