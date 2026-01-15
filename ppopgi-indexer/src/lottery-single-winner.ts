@@ -23,11 +23,7 @@ import {
   NativeSurplusSwept as NativeSurplusSweptEvent
 } from "../generated/templates/LotterySingleWinner/LotterySingleWinner"
 
-import {
-  Raffle,
-  RaffleStatus,
-  RaffleEventType
-} from "../generated/schema"
+import { Raffle } from "../generated/schema"
 
 import { createRaffleEvent, touchRaffle } from "./utils"
 
@@ -56,7 +52,7 @@ function mustLoadRaffle(id: Bytes, event: ethereum.Event): Raffle {
 
     r.isRegistered = false
     r.paused = false
-    r.status = RaffleStatus.OPEN
+    r.status = "OPEN"
     r.sold = BigInt.zero()
     r.ticketRevenue = BigInt.zero()
     r.lastUpdatedBlock = event.block.number
@@ -76,7 +72,7 @@ export function handleTicketsPurchased(event: TicketsPurchasedEvent): void {
   touchRaffle(raffle, event)
   raffle.save()
 
-  let ev = createRaffleEvent(raffleId, RaffleEventType.TICKETS_PURCHASED, event)
+  let ev = createRaffleEvent(raffleId, "TICKETS_PURCHASED", event)
   ev.actor = event.params.buyer
   ev.amount = event.params.totalCost
   ev.uintValue = event.params.count
@@ -89,7 +85,7 @@ export function handleLotteryFinalized(event: LotteryFinalizedEvent): void {
   let raffleId = event.address
   let raffle = mustLoadRaffle(raffleId, event)
 
-  raffle.status = RaffleStatus.DRAWING
+  raffle.status = "DRAWING"
   raffle.finalizeRequestId = BigInt.fromU64(event.params.requestId)
   raffle.finalizedAt = event.block.timestamp
   raffle.selectedProvider = event.params.provider
@@ -98,7 +94,7 @@ export function handleLotteryFinalized(event: LotteryFinalizedEvent): void {
   touchRaffle(raffle, event)
   raffle.save()
 
-  let ev = createRaffleEvent(raffleId, RaffleEventType.LOTTERY_FINALIZED, event)
+  let ev = createRaffleEvent(raffleId, "LOTTERY_FINALIZED", event)
   ev.requestId = BigInt.fromU64(event.params.requestId)
   ev.amount2 = event.params.totalSold
   ev.target = event.params.provider
@@ -109,7 +105,7 @@ export function handleWinnerPicked(event: WinnerPickedEvent): void {
   let raffleId = event.address
   let raffle = mustLoadRaffle(raffleId, event)
 
-  raffle.status = RaffleStatus.COMPLETED
+  raffle.status = "COMPLETED"
   raffle.winner = event.params.winner
   raffle.winningTicketIndex = event.params.winningTicketIndex
   raffle.sold = event.params.totalSold
@@ -118,7 +114,7 @@ export function handleWinnerPicked(event: WinnerPickedEvent): void {
   touchRaffle(raffle, event)
   raffle.save()
 
-  let ev = createRaffleEvent(raffleId, RaffleEventType.WINNER_PICKED, event)
+  let ev = createRaffleEvent(raffleId, "WINNER_PICKED", event)
   ev.actor = event.params.winner
   ev.uintValue = event.params.winningTicketIndex
   ev.amount2 = event.params.totalSold
@@ -128,21 +124,19 @@ export function handleWinnerPicked(event: WinnerPickedEvent): void {
 export function handleCallbackRejected(event: CallbackRejectedEvent): void {
   let raffleId = event.address
 
-  let ev = createRaffleEvent(raffleId, RaffleEventType.CALLBACK_REJECTED, event)
+  let ev = createRaffleEvent(raffleId, "CALLBACK_REJECTED", event)
   ev.requestId = BigInt.fromU64(event.params.sequenceNumber)
   ev.reasonCode = event.params.reasonCode
   ev.save()
 }
 
-export function handleGovernanceLockUpdated(event: GovernanceLockUpdatedEvent): void {
+export function handleGovernanceLockUpdated(
+  event: GovernanceLockUpdatedEvent
+): void {
   // This is global in contract, but emitted per-lottery instance.
   let raffleId = event.address
 
-  let ev = createRaffleEvent(
-    raffleId,
-    RaffleEventType.GOVERNANCE_LOCK_UPDATED,
-    event
-  )
+  let ev = createRaffleEvent(raffleId, "GOVERNANCE_LOCK_UPDATED", event)
   ev.uintValue = event.params.activeDrawings
   ev.save()
 }
@@ -152,7 +146,7 @@ export function handleLotteryCanceled(event: LotteryCanceledEvent): void {
   let raffleId = event.address
   let raffle = mustLoadRaffle(raffleId, event)
 
-  raffle.status = RaffleStatus.CANCELED
+  raffle.status = "CANCELED"
   raffle.canceledReason = event.params.reason
   raffle.canceledAt = event.block.timestamp
   raffle.soldAtCancel = event.params.sold
@@ -162,7 +156,7 @@ export function handleLotteryCanceled(event: LotteryCanceledEvent): void {
   touchRaffle(raffle, event)
   raffle.save()
 
-  let ev = createRaffleEvent(raffleId, RaffleEventType.LOTTERY_CANCELED, event)
+  let ev = createRaffleEvent(raffleId, "LOTTERY_CANCELED", event)
   ev.text = event.params.reason
   ev.amount2 = event.params.sold
   ev.amount = event.params.ticketRevenue
@@ -171,14 +165,14 @@ export function handleLotteryCanceled(event: LotteryCanceledEvent): void {
 
 export function handleEmergencyRecovery(event: EmergencyRecoveryEvent): void {
   let raffleId = event.address
-  let ev = createRaffleEvent(raffleId, RaffleEventType.EMERGENCY_RECOVERY, event)
+  let ev = createRaffleEvent(raffleId, "EMERGENCY_RECOVERY", event)
   ev.save()
 }
 
 // --- allocations / claims
 export function handlePrizeAllocated(event: PrizeAllocatedEvent): void {
   let raffleId = event.address
-  let ev = createRaffleEvent(raffleId, RaffleEventType.PRIZE_ALLOCATED, event)
+  let ev = createRaffleEvent(raffleId, "PRIZE_ALLOCATED", event)
   ev.actor = event.params.user
   ev.amount = event.params.amount
   ev.reasonCode = event.params.reason
@@ -187,7 +181,7 @@ export function handlePrizeAllocated(event: PrizeAllocatedEvent): void {
 
 export function handleRefundAllocated(event: RefundAllocatedEvent): void {
   let raffleId = event.address
-  let ev = createRaffleEvent(raffleId, RaffleEventType.REFUND_ALLOCATED, event)
+  let ev = createRaffleEvent(raffleId, "REFUND_ALLOCATED", event)
   ev.actor = event.params.user
   ev.amount = event.params.amount
   ev.save()
@@ -195,19 +189,17 @@ export function handleRefundAllocated(event: RefundAllocatedEvent): void {
 
 export function handleFundsClaimed(event: FundsClaimedEvent): void {
   let raffleId = event.address
-  let ev = createRaffleEvent(raffleId, RaffleEventType.FUNDS_CLAIMED, event)
+  let ev = createRaffleEvent(raffleId, "FUNDS_CLAIMED", event)
   ev.actor = event.params.user
   ev.amount = event.params.amount
   ev.save()
 }
 
-export function handleNativeRefundAllocated(event: NativeRefundAllocatedEvent): void {
+export function handleNativeRefundAllocated(
+  event: NativeRefundAllocatedEvent
+): void {
   let raffleId = event.address
-  let ev = createRaffleEvent(
-    raffleId,
-    RaffleEventType.NATIVE_REFUND_ALLOCATED,
-    event
-  )
+  let ev = createRaffleEvent(raffleId, "NATIVE_REFUND_ALLOCATED", event)
   ev.actor = event.params.user
   ev.amount = event.params.amount
   ev.save()
@@ -215,7 +207,7 @@ export function handleNativeRefundAllocated(event: NativeRefundAllocatedEvent): 
 
 export function handleNativeClaimed(event: NativeClaimedEvent): void {
   let raffleId = event.address
-  let ev = createRaffleEvent(raffleId, RaffleEventType.NATIVE_CLAIMED, event)
+  let ev = createRaffleEvent(raffleId, "NATIVE_CLAIMED", event)
   ev.actor = event.params.user
   ev.amount = event.params.amount
   ev.save()
@@ -225,11 +217,7 @@ export function handleProtocolFeesCollected(
   event: ProtocolFeesCollectedEvent
 ): void {
   let raffleId = event.address
-  let ev = createRaffleEvent(
-    raffleId,
-    RaffleEventType.PROTOCOL_FEES_COLLECTED,
-    event
-  )
+  let ev = createRaffleEvent(raffleId, "PROTOCOL_FEES_COLLECTED", event)
   ev.amount = event.params.amount
   ev.save()
 }
@@ -245,11 +233,7 @@ export function handleEntropyProviderUpdated(
   touchRaffle(raffle, event)
   raffle.save()
 
-  let ev = createRaffleEvent(
-    raffleId,
-    RaffleEventType.ENTROPY_PROVIDER_UPDATED,
-    event
-  )
+  let ev = createRaffleEvent(raffleId, "ENTROPY_PROVIDER_UPDATED", event)
   ev.target = event.params.newProvider
   ev.save()
 }
@@ -264,11 +248,7 @@ export function handleEntropyContractUpdated(
   touchRaffle(raffle, event)
   raffle.save()
 
-  let ev = createRaffleEvent(
-    raffleId,
-    RaffleEventType.ENTROPY_CONTRACT_UPDATED,
-    event
-  )
+  let ev = createRaffleEvent(raffleId, "ENTROPY_CONTRACT_UPDATED", event)
   ev.target = event.params.newContract
   ev.save()
 }
@@ -277,11 +257,7 @@ export function handleLotteryOwnershipTransferred(
   event: OwnershipTransferredEvent
 ): void {
   let raffleId = event.address
-  let ev = createRaffleEvent(
-    raffleId,
-    RaffleEventType.LOTTERY_OWNER_CHANGED,
-    event
-  )
+  let ev = createRaffleEvent(raffleId, "LOTTERY_OWNER_CHANGED", event)
   ev.actor = event.params.previousOwner
   ev.target = event.params.newOwner
   ev.save()
@@ -296,7 +272,7 @@ export function handlePaused(event: PausedEvent): void {
   touchRaffle(raffle, event)
   raffle.save()
 
-  let ev = createRaffleEvent(raffleId, RaffleEventType.PAUSED, event)
+  let ev = createRaffleEvent(raffleId, "PAUSED", event)
   ev.actor = event.params.account
   ev.save()
 }
@@ -309,14 +285,14 @@ export function handleUnpaused(event: UnpausedEvent): void {
   touchRaffle(raffle, event)
   raffle.save()
 
-  let ev = createRaffleEvent(raffleId, RaffleEventType.UNPAUSED, event)
+  let ev = createRaffleEvent(raffleId, "UNPAUSED", event)
   ev.actor = event.params.account
   ev.save()
 }
 
 export function handleSurplusSwept(event: SurplusSweptEvent): void {
   let raffleId = event.address
-  let ev = createRaffleEvent(raffleId, RaffleEventType.SURPLUS_SWEPT, event)
+  let ev = createRaffleEvent(raffleId, "SURPLUS_SWEPT", event)
   ev.target = event.params.to
   ev.amount = event.params.amount
   ev.save()
@@ -326,11 +302,7 @@ export function handleNativeSurplusSwept(
   event: NativeSurplusSweptEvent
 ): void {
   let raffleId = event.address
-  let ev = createRaffleEvent(
-    raffleId,
-    RaffleEventType.NATIVE_SURPLUS_SWEPT,
-    event
-  )
+  let ev = createRaffleEvent(raffleId, "NATIVE_SURPLUS_SWEPT", event)
   ev.target = event.params.to
   ev.amount = event.params.amount
   ev.save()
