@@ -21,12 +21,10 @@ export function handleLotteryRegistered(event: LotteryRegisteredEvent): void {
   let raffleId = event.params.lottery
 
   let raffle = Raffle.load(raffleId)
-  let isNew = false
 
   if (raffle == null) {
     // Fallback: create raffle discovered via registry (in case deployer indexing started later).
     raffle = new Raffle(raffleId)
-    isNew = true
 
     raffle.creator = event.params.creator
     raffle.name = "Unnamed"
@@ -45,18 +43,15 @@ export function handleLotteryRegistered(event: LotteryRegisteredEvent): void {
     raffle.minTickets = BigInt.zero()
     raffle.maxTickets = BigInt.zero()
 
-    // ✅ Fix: avoid numeric enum assignment
+    // ✅ Correct enum usage
     raffle.status = RaffleStatus.OPEN
 
     raffle.sold = BigInt.zero()
     raffle.ticketRevenue = BigInt.zero()
-    raffle.isRegistered = true
     raffle.paused = false
-  } else {
-    // If the raffle already exists (e.g., created from deployer events),
-    // just ensure it's marked registered + registry metadata updated below.
   }
 
+  // Always update registry-related metadata
   raffle.registry = event.address
   raffle.registryIndex = event.params.index
   raffle.typeId = event.params.typeId
@@ -66,14 +61,9 @@ export function handleLotteryRegistered(event: LotteryRegisteredEvent): void {
   touchRaffle(raffle, event)
   raffle.save()
 
-  // ✅ Fix: ensure we start indexing this lottery even if it was discovered via the registry.
-  // This prevents "registered but never indexed" raffles when deployer events were missed.
-  if (isNew) {
-    LotterySingleWinnerTemplate.create(raffleId)
-  } else {
-    // Optional: you can still create unconditionally; The Graph will typically dedupe template creation.
-    // LotterySingleWinnerTemplate.create(raffleId)
-  }
+  // ✅ CRITICAL: always create the template so this lottery is indexed,
+  // even if deployer events were missed earlier.
+  LotterySingleWinnerTemplate.create(raffleId)
 
   let ev = createRaffleEvent(raffleId, RaffleEventType.LOTTERY_REGISTERED, event)
   ev.actor = event.params.creator
