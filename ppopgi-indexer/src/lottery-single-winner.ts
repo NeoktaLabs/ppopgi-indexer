@@ -86,7 +86,8 @@ export function handleLotteryFinalized(event: LotteryFinalizedEvent): void {
   let raffle = mustLoadRaffle(raffleId, event)
 
   raffle.status = "DRAWING"
-  raffle.finalizeRequestId = BigInt.fromU64(event.params.requestId)
+  // ✅ requestId is already BigInt in your generated bindings
+  raffle.finalizeRequestId = event.params.requestId
   raffle.finalizedAt = event.block.timestamp
   raffle.selectedProvider = event.params.provider
   raffle.sold = event.params.totalSold
@@ -95,7 +96,8 @@ export function handleLotteryFinalized(event: LotteryFinalizedEvent): void {
   raffle.save()
 
   let ev = createRaffleEvent(raffleId, "LOTTERY_FINALIZED", event)
-  ev.requestId = BigInt.fromU64(event.params.requestId)
+  // ✅ requestId is already BigInt
+  ev.requestId = event.params.requestId
   ev.amount2 = event.params.totalSold
   ev.target = event.params.provider
   ev.save()
@@ -125,7 +127,8 @@ export function handleCallbackRejected(event: CallbackRejectedEvent): void {
   let raffleId = event.address
 
   let ev = createRaffleEvent(raffleId, "CALLBACK_REJECTED", event)
-  ev.requestId = BigInt.fromU64(event.params.sequenceNumber)
+  // ✅ sequenceNumber is already BigInt
+  ev.requestId = event.params.sequenceNumber
   ev.reasonCode = event.params.reasonCode
   ev.save()
 }
