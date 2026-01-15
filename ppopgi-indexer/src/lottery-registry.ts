@@ -1,100 +1,95 @@
-import { Bytes } from "@graphprotocol/graph-ts";
-
+import { Address, BigInt } from "@graphprotocol/graph-ts"
 import {
   LotteryRegistered as LotteryRegisteredEvent,
   RegistrarSet as RegistrarSetEvent,
-  OwnershipTransferred as OwnershipTransferredEvent,
-} from "../generated/LotteryRegistry/LotteryRegistry";
+  OwnershipTransferred as OwnershipTransferredEvent
+} from "../generated/LotteryRegistry/LotteryRegistry"
 
-import { Raffle, RaffleEvent, Registrar, RegistryOwner } from "../generated/schema";
+import {
+  Raffle,
+  Registrar,
+  RegistryOwner,
+  RaffleEventType
+} from "../generated/schema"
 
-function eventId(tx: Bytes, logIndex: BigInt): string {
-  return tx.toHexString() + "-" + logIndex.toString();
-}
+import { createRaffleEvent, touchRaffle } from "./utils"
 
 export function handleLotteryRegistered(event: LotteryRegisteredEvent): void {
-  let raffleId = event.params.lottery as Bytes;
-  let r = Raffle.load(raffleId);
+  let raffleId = event.params.lottery
 
-  // It’s possible the registry registers something the deployer didn’t index (rare), but handle it.
-  if (r == null) {
-    r = new Raffle(raffleId);
+  let raffle = Raffle.load(raffleId)
+  if (raffle == null) {
+    // It’s okay to create it here too (in case deployer indexing started later).
+    // But it will be missing deployer metadata; that’s acceptable fallback.
+    raffle = new Raffle(raffleId)
+    raffle.creator = event.params.creator
+    raffle.name = "Unnamed"
+    raffle.createdAtBlock = event.block.number
+    raffle.createdAtTimestamp = event.block.timestamp
+    raffle.creationTx = event.transaction.hash
 
-    // Minimal defaults so the subgraph does not crash
-    r.deployer = Bytes.empty();
-    r.creator = event.params.creator;
-    r.name = "";
-    r.createdAt = event.block.timestamp;
-    r.deploymentTx = event.transaction.hash;
+    raffle.usdc = Address.zero()
+    raffle.entropy = Address.zero()
+    raffle.entropyProvider = Address.zero()
+    raffle.feeRecipient = Address.zero()
+    raffle.protocolFeePercent = BigInt.zero()
+    raffle.winningPot = BigInt.zero()
+    raffle.ticketPrice = BigInt.zero()
+    raffle.deadline = BigInt.zero()
+    raffle.minTickets = BigInt.zero()
+    raffle.maxTickets = BigInt.zero()
 
-    r.winningPot = BigInt.zero();
-    r.ticketPrice = BigInt.zero();
-    r.protocolFeePercent = BigInt.zero();
-    r.feeRecipient = Bytes.empty();
-    r.usdc = Bytes.empty();
-    r.entropy = Bytes.empty();
-    r.entropyProvider = Bytes.empty();
-    r.deadline = BigInt.zero();
-    r.minTickets = BigInt.zero();
-    r.maxTickets = BigInt.zero();
-
-    r.status = "OPEN";
-    r.paused = false;
-
-    r.sold = BigInt.zero();
-    r.ticketRevenue = BigInt.zero();
-
-    r.callbackRejectedCount = BigInt.zero();
-    r.indexedAtBlock = event.block.number;
-    r.indexedAtTimestamp = event.block.timestamp;
-    r.lastUpdatedTx = event.transaction.hash;
+    raffle.status = 1 // OPEN (enum index) — but we’ll set properly below
+    raffle.sold = BigInt.zero()
+    raffle.ticketRevenue = BigInt.zero()
+    raffle.isRegistered = true
+    raffle.paused = false
   }
 
-  r.registry = event.address; // registry address
-  r.isRegistered = true;
-  r.typeId = event.params.typeId;
-  r.registryIndex = event.params.index;
-  r.registeredAt = event.block.timestamp;
+  raffle.registry = event.address
+  raffle.registryIndex = event.params.index
+  raffle.typeId = event.params.typeId
+  raffle.isRegistered = true
+  raffle.registeredAt = event.block.timestamp
 
-  r.indexedAtBlock = event.block.number;
-  r.indexedAtTimestamp = event.block.timestamp;
-  r.lastUpdatedTx = event.transaction.hash;
+  touchRaffle(raffle, event)
+  raffle.save()
 
-  r.save();
-
-  // Optional audit event
-  let ev = new RaffleEvent(eventId(event.transaction.hash, event.logIndex));
-  ev.raffle = raffleId;
-  ev.type = "REGISTERED";
-  ev.actor = event.params.creator;
-  ev.aux = event.params.typeId;
-  ev.blockNumber = event.block.number;
-  ev.blockTimestamp = event.block.timestamp;
-  ev.transactionHash = event.transaction.hash;
-  ev.save();
+  let ev = createRaffleEvent(raffleId, RaffleEventType.LOTTERY_REGISTERED, event)
+  ev.actor = event.params.creator
+  ev.uintValue = event.params.typeId
+  ev.save()
 }
 
 export function handleRegistrarSet(event: RegistrarSetEvent): void {
-  let id = event.params.registrar as Bytes;
-  let reg = Registrar.load(id);
-  if (reg == null) reg = new Registrar(id);
+  let id = event.params.registrar as Address
 
-  reg.authorized = event.params.authorized;
-  reg.updatedAtBlock = event.block.number;
-  reg.updatedAtTimestamp = event.block.timestamp;
-  reg.lastUpdatedTx = event.transaction.hash;
-  reg.save();
+  let r = Registrar.load(id)
+  if (r == null) {
+    r = new Registrar(id)
+  }
+
+  r.registry = event.address
+  r.authorized = event.params.authorized
+  r.updatedAtBlock = event.block.number
+  r.updatedAtTimestamp = event.block.timestamp
+  r.updatedTx = event.transaction.hash
+  r.save()
 }
 
 export function handleRegistryOwnershipTransferred(
   event: OwnershipTransferredEvent
 ): void {
-  let o = RegistryOwner.load("REGISTRY_OWNER");
-  if (o == null) o = new RegistryOwner("REGISTRY_OWNER");
+  let id = event.address as Address
 
-  o.owner = event.params.newOwner;
-  o.updatedAtBlock = event.block.number;
-  o.updatedAtTimestamp = event.block.timestamp;
-  o.lastUpdatedTx = event.transaction.hash;
-  o.save();
+  let o = RegistryOwner.load(id)
+  if (o == null) {
+    o = new RegistryOwner(id)
+  }
+
+  o.owner = event.params.newOwner
+  o.updatedAtBlock = event.block.number
+  o.updatedAtTimestamp = event.block.timestamp
+  o.updatedTx = event.transaction.hash
+  o.save()
 }
