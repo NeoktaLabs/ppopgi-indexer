@@ -1,84 +1,100 @@
+import { Bytes } from "@graphprotocol/graph-ts";
+
 import {
-  ConfigUpdated as ConfigUpdatedEvent,
-  DeployerOwnershipTransferred as DeployerOwnershipTransferredEvent,
-  LotteryDeployed as LotteryDeployedEvent,
-  RegistrationFailed as RegistrationFailedEvent
-} from "../generated/SingleWinnerDeployer/SingleWinnerDeployer"
-import {
-  ConfigUpdated,
-  DeployerOwnershipTransferred,
-  LotteryDeployed,
-  RegistrationFailed
-} from "../generated/schema"
+  LotteryRegistered as LotteryRegisteredEvent,
+  RegistrarSet as RegistrarSetEvent,
+  OwnershipTransferred as OwnershipTransferredEvent,
+} from "../generated/LotteryRegistry/LotteryRegistry";
 
-export function handleConfigUpdated(event: ConfigUpdatedEvent): void {
-  let entity = new ConfigUpdated(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  )
-  entity.usdc = event.params.usdc
-  entity.entropy = event.params.entropy
-  entity.provider = event.params.provider
-  entity.feeRecipient = event.params.feeRecipient
-  entity.protocolFeePercent = event.params.protocolFeePercent
+import { Raffle, RaffleEvent, Registrar, RegistryOwner } from "../generated/schema";
 
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  entity.save()
+function eventId(tx: Bytes, logIndex: BigInt): string {
+  return tx.toHexString() + "-" + logIndex.toString();
 }
 
-export function handleDeployerOwnershipTransferred(
-  event: DeployerOwnershipTransferredEvent
+export function handleLotteryRegistered(event: LotteryRegisteredEvent): void {
+  let raffleId = event.params.lottery as Bytes;
+  let r = Raffle.load(raffleId);
+
+  // It’s possible the registry registers something the deployer didn’t index (rare), but handle it.
+  if (r == null) {
+    r = new Raffle(raffleId);
+
+    // Minimal defaults so the subgraph does not crash
+    r.deployer = Bytes.empty();
+    r.creator = event.params.creator;
+    r.name = "";
+    r.createdAt = event.block.timestamp;
+    r.deploymentTx = event.transaction.hash;
+
+    r.winningPot = BigInt.zero();
+    r.ticketPrice = BigInt.zero();
+    r.protocolFeePercent = BigInt.zero();
+    r.feeRecipient = Bytes.empty();
+    r.usdc = Bytes.empty();
+    r.entropy = Bytes.empty();
+    r.entropyProvider = Bytes.empty();
+    r.deadline = BigInt.zero();
+    r.minTickets = BigInt.zero();
+    r.maxTickets = BigInt.zero();
+
+    r.status = "OPEN";
+    r.paused = false;
+
+    r.sold = BigInt.zero();
+    r.ticketRevenue = BigInt.zero();
+
+    r.callbackRejectedCount = BigInt.zero();
+    r.indexedAtBlock = event.block.number;
+    r.indexedAtTimestamp = event.block.timestamp;
+    r.lastUpdatedTx = event.transaction.hash;
+  }
+
+  r.registry = event.address; // registry address
+  r.isRegistered = true;
+  r.typeId = event.params.typeId;
+  r.registryIndex = event.params.index;
+  r.registeredAt = event.block.timestamp;
+
+  r.indexedAtBlock = event.block.number;
+  r.indexedAtTimestamp = event.block.timestamp;
+  r.lastUpdatedTx = event.transaction.hash;
+
+  r.save();
+
+  // Optional audit event
+  let ev = new RaffleEvent(eventId(event.transaction.hash, event.logIndex));
+  ev.raffle = raffleId;
+  ev.type = "REGISTERED";
+  ev.actor = event.params.creator;
+  ev.aux = event.params.typeId;
+  ev.blockNumber = event.block.number;
+  ev.blockTimestamp = event.block.timestamp;
+  ev.transactionHash = event.transaction.hash;
+  ev.save();
+}
+
+export function handleRegistrarSet(event: RegistrarSetEvent): void {
+  let id = event.params.registrar as Bytes;
+  let reg = Registrar.load(id);
+  if (reg == null) reg = new Registrar(id);
+
+  reg.authorized = event.params.authorized;
+  reg.updatedAtBlock = event.block.number;
+  reg.updatedAtTimestamp = event.block.timestamp;
+  reg.lastUpdatedTx = event.transaction.hash;
+  reg.save();
+}
+
+export function handleRegistryOwnershipTransferred(
+  event: OwnershipTransferredEvent
 ): void {
-  let entity = new DeployerOwnershipTransferred(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  )
-  entity.oldOwner = event.params.oldOwner
-  entity.newOwner = event.params.newOwner
+  let o = RegistryOwner.load("REGISTRY_OWNER");
+  if (o == null) o = new RegistryOwner("REGISTRY_OWNER");
 
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  entity.save()
-}
-
-export function handleLotteryDeployed(event: LotteryDeployedEvent): void {
-  let entity = new LotteryDeployed(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  )
-  entity.lottery = event.params.lottery
-  entity.creator = event.params.creator
-  entity.winningPot = event.params.winningPot
-  entity.ticketPrice = event.params.ticketPrice
-  entity.name = event.params.name
-  entity.usdc = event.params.usdc
-  entity.entropy = event.params.entropy
-  entity.entropyProvider = event.params.entropyProvider
-  entity.feeRecipient = event.params.feeRecipient
-  entity.protocolFeePercent = event.params.protocolFeePercent
-  entity.deadline = event.params.deadline
-  entity.minTickets = event.params.minTickets
-  entity.maxTickets = event.params.maxTickets
-
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  entity.save()
-}
-
-export function handleRegistrationFailed(event: RegistrationFailedEvent): void {
-  let entity = new RegistrationFailed(
-    event.transaction.hash.concatI32(event.logIndex.toI32())
-  )
-  entity.lottery = event.params.lottery
-  entity.creator = event.params.creator
-
-  entity.blockNumber = event.block.number
-  entity.blockTimestamp = event.block.timestamp
-  entity.transactionHash = event.transaction.hash
-
-  entity.save()
+  o.owner = event.params.newOwner;
+  o.updatedAtBlock = event.block.number;
+  o.updatedAtTimestamp = event.block.timestamp;
+  o.lastUpdatedTx = event.transaction.hash;
+  o.save();
 }
