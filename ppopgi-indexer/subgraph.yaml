@@ -63,9 +63,9 @@ dataSources:
     name: LotteryRegistry
     network: etherlink-mainnet
     source:
-      address: "REPLACE_WITH_YOUR_REGISTRY_ADDRESS"
+      address: "0x1CD24E0C49b1B61ff07be12fBa3ce58eCb20b098"
       abi: LotteryRegistry
-      startBlock: REPLACE_WITH_REGISTRY_START_BLOCK
+      startBlock: 36324588
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
