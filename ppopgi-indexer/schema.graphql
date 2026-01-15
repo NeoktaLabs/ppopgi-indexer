@@ -1,49 +1,144 @@
-type ConfigUpdated @entity(immutable: true) {
-  id: Bytes!
-  usdc: Bytes! # address
-  entropy: Bytes! # address
-  provider: Bytes! # address
+"""
+One row per lottery instance (LotterySingleWinner).
+This is the main entity your frontend will query.
+"""
+type Raffle @entity {
+  id: Bytes! # lottery address
+
+  # --- Canonical discovery ---
+  deployer: Bytes! # SingleWinnerDeployer address
+  registry: Bytes # LotteryRegistry address (optional)
+  isRegistered: Boolean! # set true when LotteryRegistered is seen
+  typeId: BigInt # from registry
+  registryIndex: BigInt # index in registry (from LotteryRegistered)
+  registeredAt: BigInt # block timestamp from LotteryRegistered
+  creator: Bytes! # creator set at deployment time
+  createdAt: BigInt! # block timestamp (LotteryDeployed tx timestamp)
+
+  # --- Display ---
+  name: String!
+
+  # --- Core economics (USDC is 6 decimals) ---
+  winningPot: BigInt! # winningPot param
+  ticketPrice: BigInt! # ticketPrice param
+  protocolFeePercent: BigInt! # percent 0..20
   feeRecipient: Bytes! # address
-  protocolFeePercent: BigInt! # uint256
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
+
+  # --- Entropy / draw transparency ---
+  entropy: Bytes! # entropy contract address
+  entropyProvider: Bytes! # configured provider address
+
+  # These are the values actually used for the current draw (important for trust UI)
+  selectedProvider: Bytes # from LotteryFinalized(provider)
+  finalizeRequestId: BigInt # uint64 stored as BigInt
+  drawingRequestedAt: BigInt # from tx timestamp when finalized (or later if you prefer)
+  callbackRejectedCount: BigInt! # count of CallbackRejected events (trust signal)
+
+  # --- Lifecycle state (best-effort, derived from events) ---
+  status: String! # "FUNDING_PENDING" | "OPEN" | "DRAWING" | "COMPLETED" | "CANCELED"
+  deadline: BigInt! # from LotteryDeployed event (uint64)
+
+  # --- Participation tracking (best-effort, derived from events) ---
+  sold: BigInt! # update from TicketsPurchased.totalSold, or from LotteryFinalized.totalSold
+  soldAtDrawing: BigInt # from LotteryFinalized(totalSold)
+  soldAtCancel: BigInt # from LotteryCanceled(sold)
+  ticketRevenue: BigInt # from LotteryCanceled(ticketRevenue) (and optionally accumulate purchases)
+
+  # --- Outcome ---
+  winner: Bytes # from WinnerPicked
+  winningTicketIndex: BigInt # from WinnerPicked
+  completedAt: BigInt # block timestamp of WinnerPicked tx
+
+  canceledReason: String # from LotteryCanceled
+  canceledAt: BigInt # block timestamp of LotteryCanceled tx
+  potRefund: BigInt # from LotteryCanceled(potRefund)
+
+  # --- Pausing / admin signals ---
+  paused: Boolean! # true after Paused, false after Unpaused
+  lastPauseChangedAt: BigInt
+
+  # --- Factory config snapshot (at creation time) ---
+  usdc: Bytes! # usdc token address (from LotteryDeployed)
+  minTickets: BigInt! # uint64 -> BigInt
+  maxTickets: BigInt! # uint64 -> BigInt
+
+  # --- Useful metadata for frontends ---
+  indexedAtBlock: BigInt!
+  indexedAtTimestamp: BigInt!
+  deploymentTx: Bytes!
+  lastUpdatedTx: Bytes!
 }
 
-type DeployerOwnershipTransferred @entity(immutable: true) {
-  id: Bytes!
-  oldOwner: Bytes! # address
-  newOwner: Bytes! # address
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
+"""
+Latest factory defaults (used by Create modal and trust UI).
+One row per deployer address.
+"""
+type FactoryConfig @entity {
+  id: Bytes! # deployer address
+
+  usdc: Bytes!
+  entropy: Bytes!
+  entropyProvider: Bytes!
+  feeRecipient: Bytes!
+  protocolFeePercent: BigInt!
+
+  updatedAtBlock: BigInt!
+  updatedAtTimestamp: BigInt!
+  lastUpdatedTx: Bytes!
 }
 
-type LotteryDeployed @entity(immutable: true) {
-  id: Bytes!
-  lottery: Bytes! # address
-  creator: Bytes! # address
-  winningPot: BigInt! # uint256
-  ticketPrice: BigInt! # uint256
-  name: String! # string
-  usdc: Bytes! # address
-  entropy: Bytes! # address
-  entropyProvider: Bytes! # address
-  feeRecipient: Bytes! # address
-  protocolFeePercent: BigInt! # uint256
-  deadline: BigInt! # uint64
-  minTickets: BigInt! # uint64
-  maxTickets: BigInt! # uint64
+"""
+Optional: store a timeline of important events per raffle.
+This is your "audit log" for transparency in the UI.
+"""
+type RaffleEvent @entity {
+  id: ID! # txHash-logIndex (string)
+
+  raffle: Bytes! # lottery address
+  type: String! # "DEPLOYED" | "REGISTERED" | "PURCHASED" | "FINALIZED" | "WINNER_PICKED" | "CANCELED" | etc.
+
+  # block info
   blockNumber: BigInt!
   blockTimestamp: BigInt!
   transactionHash: Bytes!
+
+  # generic payload
+  actor: Bytes # buyer / creator / feeRecipient etc.
+  amount: BigInt # tickets cost / payout amount / fee amount etc.
+  aux: BigInt # e.g. totalSold, requestId, winningIndex
+  text: String # e.g. cancel reason
+  addressValue: Bytes # provider / entropy contract / fee recipient etc.
 }
 
-type RegistrationFailed @entity(immutable: true) {
-  id: Bytes!
-  lottery: Bytes! # address
-  creator: Bytes! # address
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
+"""
+Optional: registrar state changes (useful for admin / audits).
+"""
+type Registrar @entity {
+  id: Bytes! # registrar address
+  authorized: Boolean!
+  updatedAtBlock: BigInt!
+  updatedAtTimestamp: BigInt!
+  lastUpdatedTx: Bytes!
+}
+
+"""
+Optional: registry ownership tracking (admin audit).
+"""
+type RegistryOwner @entity {
+  id: ID! # "REGISTRY_OWNER"
+  owner: Bytes!
+  updatedAtBlock: BigInt!
+  updatedAtTimestamp: BigInt!
+  lastUpdatedTx: Bytes!
+}
+
+"""
+Optional: deployer ownership tracking (admin audit).
+"""
+type DeployerOwner @entity {
+  id: ID! # "DEPLOYER_OWNER"
+  owner: Bytes!
+  updatedAtBlock: BigInt!
+  updatedAtTimestamp: BigInt!
+  lastUpdatedTx: Bytes!
 }
