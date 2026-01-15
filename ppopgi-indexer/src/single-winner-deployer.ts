@@ -8,13 +8,7 @@ import {
 
 import { LotterySingleWinner as LotterySingleWinnerTemplate } from "../generated/templates"
 
-import {
-  FactoryConfig,
-  DeployerOwner,
-  Raffle,
-  RaffleStatus,
-  RaffleEventType
-} from "../generated/schema"
+import { FactoryConfig, DeployerOwner, Raffle } from "../generated/schema"
 
 import { createRaffleEvent, touchRaffle } from "./utils"
 
@@ -84,12 +78,14 @@ export function handleLotteryDeployed(event: LotteryDeployedEvent): void {
 
     raffle.winningPot = event.params.winningPot
     raffle.ticketPrice = event.params.ticketPrice
-    raffle.deadline = BigInt.fromU64(event.params.deadline)
-    raffle.minTickets = BigInt.fromU64(event.params.minTickets)
-    raffle.maxTickets = BigInt.fromU64(event.params.maxTickets)
+
+    // ✅ ABI params are already BigInt in graph-ts generated types
+    raffle.deadline = event.params.deadline
+    raffle.minTickets = event.params.minTickets
+    raffle.maxTickets = event.params.maxTickets
 
     // lifecycle defaults
-    raffle.status = RaffleStatus.OPEN
+    raffle.status = "OPEN"
     raffle.sold = BigInt.zero()
     raffle.ticketRevenue = BigInt.zero()
     raffle.winner = null
@@ -111,10 +107,14 @@ export function handleLotteryDeployed(event: LotteryDeployedEvent): void {
     // If already exists, still touch
     touchRaffle(raffle, event)
     raffle.save()
+
+    // Optional: ensure template exists even if entity was created elsewhere
+    // (harmless if duplicated; keeps things resilient)
+    LotterySingleWinnerTemplate.create(raffleId)
   }
 
   // audit event
-  let ev = createRaffleEvent(raffleId, RaffleEventType.LOTTERY_DEPLOYED, event)
+  let ev = createRaffleEvent(raffleId, "LOTTERY_DEPLOYED", event)
   ev.actor = event.params.creator
   ev.save()
 }
@@ -122,8 +122,8 @@ export function handleLotteryDeployed(event: LotteryDeployedEvent): void {
 export function handleRegistrationFailed(event: RegistrationFailedEvent): void {
   let raffleId = event.params.lottery
 
-  // audit event (even if raffle doesn't exist yet, but it should)
-  let ev = createRaffleEvent(raffleId, RaffleEventType.REGISTRATION_FAILED, event)
+  // audit event (even if raffle doesn't exist yet)
+  let ev = createRaffleEvent(raffleId, "REGISTRATION_FAILED", event)
   ev.actor = event.params.creator
   ev.save()
 }
