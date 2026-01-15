@@ -10,7 +10,8 @@ dataSources:
   # ============================================================
   # 1) SingleWinnerDeployer
   #    - Discovers all lotteries
-  #    - Stores immutable creation metadata
+  #    - Stores creation metadata
+  #    - Instantiates LotterySingleWinner template per lottery
   # ============================================================
   - kind: ethereum
     name: SingleWinnerDeployer
@@ -26,38 +27,26 @@ dataSources:
       entities:
         - Raffle
         - FactoryConfig
+        - RaffleEvent
+        - DeployerOwner
       abis:
         - name: SingleWinnerDeployer
           file: ./abis/SingleWinnerDeployer.json
       eventHandlers:
-        - event: ConfigUpdated(address,address,address,address,uint256)
+        - event: "ConfigUpdated(address,address,address,address,uint256)"
           handler: handleConfigUpdated
-        - event: DeployerOwnershipTransferred(indexed address,indexed address)
+        - event: "DeployerOwnershipTransferred(indexed address,indexed address)"
           handler: handleDeployerOwnershipTransferred
-        - event: LotteryDeployed(
-            indexed address,
-            indexed address,
-            uint256,
-            uint256,
-            string,
-            address,
-            address,
-            address,
-            address,
-            uint256,
-            uint64,
-            uint64,
-            uint64
-          )
+        - event: "LotteryDeployed(indexed address,indexed address,uint256,uint256,string,address,address,address,address,uint256,uint64,uint64,uint64)"
           handler: handleLotteryDeployed
-        - event: RegistrationFailed(indexed address,indexed address)
+        - event: "RegistrationFailed(indexed address,indexed address)"
           handler: handleRegistrationFailed
       file: ./src/single-winner-deployer.ts
 
   # ============================================================
   # 2) LotteryRegistry
   #    - Canonical "official" list
-  #    - Registration timestamp
+  #    - Registration timestamp + typeId + index
   # ============================================================
   - kind: ethereum
     name: LotteryRegistry
@@ -72,26 +61,24 @@ dataSources:
       language: wasm/assemblyscript
       entities:
         - Raffle
+        - RaffleEvent
+        - Registrar
+        - RegistryOwner
       abis:
         - name: LotteryRegistry
           file: ./abis/LotteryRegistry.json
       eventHandlers:
-        - event: LotteryRegistered(
-            indexed uint256,
-            indexed uint256,
-            indexed address,
-            address
-          )
+        - event: "LotteryRegistered(indexed uint256,indexed uint256,indexed address,address)"
           handler: handleLotteryRegistered
-        - event: RegistrarSet(indexed address,bool)
+        - event: "RegistrarSet(indexed address,bool)"
           handler: handleRegistrarSet
-        - event: OwnershipTransferred(indexed address,indexed address)
+        - event: "OwnershipTransferred(indexed address,indexed address)"
           handler: handleRegistryOwnershipTransferred
       file: ./src/lottery-registry.ts
 
 # ==============================================================
 # 3) Lottery templates (dynamic per deployed lottery)
-#    - Full lifecycle & transparency
+#    - Full lifecycle, transparency events, audit trail
 # ==============================================================
 templates:
   - kind: ethereum
@@ -110,43 +97,56 @@ templates:
         - name: LotterySingleWinner
           file: ./abis/LotterySingleWinner.json
       eventHandlers:
-        - event: TicketsPurchased(
-            indexed address,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            bool
-          )
+        # --- participation
+        - event: "TicketsPurchased(indexed address,uint256,uint256,uint256,uint256,bool)"
           handler: handleTicketsPurchased
 
-        - event: LotteryFinalized(uint64,uint256,address)
+        # --- draw lifecycle
+        - event: "LotteryFinalized(uint64,uint256,address)"
           handler: handleLotteryFinalized
-
-        - event: WinnerPicked(indexed address,uint256,uint256)
+        - event: "WinnerPicked(indexed address,uint256,uint256)"
           handler: handleWinnerPicked
-
-        - event: LotteryCanceled(string,uint256,uint256,uint256)
-          handler: handleLotteryCanceled
-
-        - event: PrizeAllocated(indexed address,uint256,indexed uint8)
-          handler: handlePrizeAllocated
-
-        - event: GovernanceLockUpdated(uint256)
+        - event: "CallbackRejected(indexed uint64,uint8)"
+          handler: handleCallbackRejected
+        - event: "GovernanceLockUpdated(uint256)"
           handler: handleGovernanceLockUpdated
 
-        - event: EntropyProviderUpdated(address)
+        # --- cancellation / recovery
+        - event: "LotteryCanceled(string,uint256,uint256,uint256)"
+          handler: handleLotteryCanceled
+        - event: "EmergencyRecovery()"
+          handler: handleEmergencyRecovery
+
+        # --- allocations + claims (great for “shield modal” trust)
+        - event: "PrizeAllocated(indexed address,uint256,indexed uint8)"
+          handler: handlePrizeAllocated
+        - event: "RefundAllocated(indexed address,uint256)"
+          handler: handleRefundAllocated
+        - event: "FundsClaimed(indexed address,uint256)"
+          handler: handleFundsClaimed
+        - event: "NativeRefundAllocated(indexed address,uint256)"
+          handler: handleNativeRefundAllocated
+        - event: "NativeClaimed(indexed address,uint256)"
+          handler: handleNativeClaimed
+        - event: "ProtocolFeesCollected(uint256)"
+          handler: handleProtocolFeesCollected
+
+        # --- configuration changes
+        - event: "EntropyProviderUpdated(address)"
           handler: handleEntropyProviderUpdated
-
-        - event: EntropyContractUpdated(address)
+        - event: "EntropyContractUpdated(address)"
           handler: handleEntropyContractUpdated
+        - event: "OwnershipTransferred(indexed address,indexed address)"
+          handler: handleLotteryOwnershipTransferred
 
-        - event: CallbackRejected(indexed uint64,uint8)
-          handler: handleCallbackRejected
-
-        - event: Paused(address)
+        # --- admin safety
+        - event: "Paused(address)"
           handler: handlePaused
-
-        - event: Unpaused(address)
+        - event: "Unpaused(address)"
           handler: handleUnpaused
+        - event: "SurplusSwept(indexed address,uint256)"
+          handler: handleSurplusSwept
+        - event: "NativeSurplusSwept(indexed address,uint256)"
+          handler: handleNativeSurplusSwept
+
       file: ./src/lottery-single-winner.ts
