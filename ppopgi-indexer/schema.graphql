@@ -158,7 +158,7 @@ type Registrar @entity {
 }
 
 ###############################################################################
-# Audit trail / transparency events (for “shield” modal)
+# Audit trail / transparency events (for “shield modal”)
 ###############################################################################
 
 type RaffleEvent @entity {
@@ -172,7 +172,7 @@ type RaffleEvent @entity {
   txHash: Bytes!
   logIndex: BigInt!
 
-  # Generic fields (used depending on type)
+  # Generic fields (filled depending on event type)
   actor: Bytes
   target: Bytes
   amount: BigInt
