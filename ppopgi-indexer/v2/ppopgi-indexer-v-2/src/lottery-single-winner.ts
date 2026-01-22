@@ -1,3 +1,5 @@
+// src/lottery-single-winner.ts (V2-adapted, full file, SAME NAMES)
+
 import { BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts"
 
 import {
@@ -21,11 +23,11 @@ import {
   Paused as PausedEvent,
   Unpaused as UnpausedEvent,
   SurplusSwept as SurplusSweptEvent,
-  NativeSurplusSwept as NativeSurplusSweptEvent,
-  FundingConfirmed as FundingConfirmedEvent
+  NativeSurplusSwept as NativeSurplusSweptEvent
 } from "../generated/templates/LotterySingleWinner/LotterySingleWinnerV2"
 
 import { Raffle } from "../generated/schema"
+
 import { createRaffleEvent, touchRaffle } from "./utils"
 
 function mustLoadRaffle(id: Bytes, event: ethereum.Event): Raffle {
@@ -65,23 +67,6 @@ function mustLoadRaffle(id: Bytes, event: ethereum.Event): Raffle {
     r.lastUpdatedTimestamp = event.block.timestamp
   }
   return r as Raffle
-}
-
-// --- funding / lifecycle
-export function handleFundingConfirmed(event: FundingConfirmedEvent): void {
-  let raffleId = event.address
-  let raffle = mustLoadRaffle(raffleId, event)
-
-  raffle.status = "OPEN"
-
-  touchRaffle(raffle, event)
-  raffle.save()
-
-  let ev = createRaffleEvent(raffleId, "LOTTERY_DEPLOYED", event) // optional; you may want a dedicated type
-  // If you prefer, change to a new enum like FUNDING_CONFIRMED in your schema.
-  ev.actor = event.params.funder
-  ev.amount = event.params.amount
-  ev.save()
 }
 
 // --- participation
@@ -156,6 +141,7 @@ export function handleCallbackRejected(event: CallbackRejectedEvent): void {
 export function handleGovernanceLockUpdated(
   event: GovernanceLockUpdatedEvent
 ): void {
+  // This is global in contract, but emitted per-lottery instance.
   let raffleId = event.address
 
   let ev = createRaffleEvent(raffleId, "GOVERNANCE_LOCK_UPDATED", event)
@@ -281,12 +267,13 @@ export function handleCallbackGasLimitUpdated(
   let raffleId = event.address
   let raffle = mustLoadRaffle(raffleId, event)
 
-  raffle.callbackGasLimit = BigInt.fromU32(event.params.newGasLimit)
+  // ✅ In your generated bindings, newGasLimit is BigInt
+  raffle.callbackGasLimit = event.params.newGasLimit
   touchRaffle(raffle, event)
   raffle.save()
 
   let ev = createRaffleEvent(raffleId, "CALLBACK_GAS_LIMIT_UPDATED", event)
-  ev.uintValue = BigInt.fromU32(event.params.newGasLimit)
+  ev.uintValue = event.params.newGasLimit
   ev.save()
 }
 
