@@ -6,10 +6,12 @@ import {
 } from "../generated/SingleWinnerDeployer/SingleWinnerDeployerV2"
 
 import { LotterySingleWinner as LotterySingleWinnerTemplate } from "../generated/templates"
+
 import { FactoryConfig, DeployerOwner, Raffle } from "../generated/schema"
+
 import { createRaffleEvent, touchRaffle } from "./utils"
 
-// To read minPurchaseAmount (not emitted by deployer event)
+// Contract binding (template ABI) to fetch minPurchaseAmount (not in deployer event)
 import { LotterySingleWinnerV2 as LotterySingleWinnerV2Contract } from "../generated/templates/LotterySingleWinner/LotterySingleWinnerV2"
 
 export function handleConfigUpdated(event: ConfigUpdatedEvent): void {
@@ -23,7 +25,10 @@ export function handleConfigUpdated(event: ConfigUpdatedEvent): void {
   cfg.usdc = event.params.usdc
   cfg.entropy = event.params.entropy
   cfg.provider = event.params.provider
-  cfg.callbackGasLimit = BigInt.fromU32(event.params.callbackGasLimit)
+
+  // ✅ generated type is BigInt in your bindings
+  cfg.callbackGasLimit = event.params.callbackGasLimit
+
   cfg.feeRecipient = event.params.feeRecipient
   cfg.protocolFeePercent = event.params.protocolFeePercent
 
@@ -75,15 +80,13 @@ export function handleLotteryDeployed(event: LotteryDeployedEvent): void {
     raffle.feeRecipient = event.params.feeRecipient
     raffle.protocolFeePercent = event.params.protocolFeePercent
 
-    // ✅ V2: callbackGasLimit is emitted
-    raffle.callbackGasLimit = BigInt.fromU32(event.params.callbackGasLimit)
+    // ✅ V2: emitted; generated as BigInt in your bindings
+    raffle.callbackGasLimit = event.params.callbackGasLimit
 
-    // ✅ V2: minPurchaseAmount is NOT emitted — fetch from contract
+    // ✅ V2: not in deployer event; fetch from contract
     let lot = LotterySingleWinnerV2Contract.bind(raffleId)
     let minTry = lot.try_minPurchaseAmount()
-    raffle.minPurchaseAmount = minTry.reverted
-      ? BigInt.zero()
-      : BigInt.fromU32(minTry.value)
+    raffle.minPurchaseAmount = minTry.reverted ? BigInt.zero() : minTry.value
 
     raffle.winningPot = event.params.winningPot
     raffle.ticketPrice = event.params.ticketPrice
@@ -112,19 +115,7 @@ export function handleLotteryDeployed(event: LotteryDeployedEvent): void {
     // Create template to index this lottery instance
     LotterySingleWinnerTemplate.create(raffleId)
   } else {
-    // Ensure new required fields exist (in case entity was created via registry fallback)
-    if (raffle.callbackGasLimit == null) {
-      raffle.callbackGasLimit = BigInt.fromU32(event.params.callbackGasLimit)
-    }
-    if (raffle.minPurchaseAmount == null) {
-      let lot = LotterySingleWinnerV2Contract.bind(raffleId)
-      let minTry = lot.try_minPurchaseAmount()
-      raffle.minPurchaseAmount = minTry.reverted
-        ? BigInt.zero()
-        : BigInt.fromU32(minTry.value)
-    }
-
-    // Update a few fields that might be missing
+    // Update / backfill fields in case raffle was created via registry fallback first
     raffle.deployer = event.address
     raffle.creator = event.params.creator
     raffle.name = event.params.name
@@ -133,7 +124,16 @@ export function handleLotteryDeployed(event: LotteryDeployedEvent): void {
     raffle.entropyProvider = event.params.entropyProvider
     raffle.feeRecipient = event.params.feeRecipient
     raffle.protocolFeePercent = event.params.protocolFeePercent
-    raffle.callbackGasLimit = BigInt.fromU32(event.params.callbackGasLimit)
+    raffle.callbackGasLimit = event.params.callbackGasLimit
+
+    // If registry fallback set minPurchaseAmount=0, try to fill it now
+    if (raffle.minPurchaseAmount.equals(BigInt.zero())) {
+      let lot = LotterySingleWinnerV2Contract.bind(raffleId)
+      let minTry = lot.try_minPurchaseAmount()
+      if (!minTry.reverted) {
+        raffle.minPurchaseAmount = minTry.value
+      }
+    }
 
     touchRaffle(raffle, event)
     raffle.save()
