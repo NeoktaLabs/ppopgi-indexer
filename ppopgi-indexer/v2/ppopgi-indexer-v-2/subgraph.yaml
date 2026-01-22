@@ -15,7 +15,7 @@ dataSources:
     name: SingleWinnerDeployer
     network: etherlink-mainnet
     source:
-      address: "0x6050196520e7010Aa39C8671055B674851E2426D"
+      address: "0x5dbDC8536164DFE454331e4EdE469B6a3FCc2922"
       abi: SingleWinnerDeployerV2
       startBlock: 36324588
     mapping:
