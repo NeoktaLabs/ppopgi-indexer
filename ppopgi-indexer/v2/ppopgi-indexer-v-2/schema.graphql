@@ -1,28 +1,195 @@
-type LotteryRegistered @entity(immutable: true) {
-  id: Bytes!
-  index: BigInt! # uint256
-  typeId: BigInt! # uint256
-  lottery: Bytes! # address
-  creator: Bytes! # address
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
+###############################################################################
+# Core entities (V2-adapted, SAME NAMES as your v1)
+###############################################################################
+
+enum RaffleStatus {
+  FUNDING_PENDING
+  OPEN
+  DRAWING
+  COMPLETED
+  CANCELED
 }
 
-type OwnershipTransferred @entity(immutable: true) {
-  id: Bytes!
-  oldOwner: Bytes! # address
-  newOwner: Bytes! # address
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
+enum RaffleEventType {
+  # factory / registry
+  FACTORY_CONFIG_UPDATED
+  FACTORY_OWNER_CHANGED
+  REGISTRY_OWNER_CHANGED
+  REGISTRAR_SET
+  LOTTERY_REGISTERED
+  LOTTERY_DEPLOYED
+  REGISTRATION_FAILED
+
+  # participation
+  TICKETS_PURCHASED
+
+  # draw lifecycle
+  LOTTERY_FINALIZED
+  CALLBACK_REJECTED
+  WINNER_PICKED
+  GOVERNANCE_LOCK_UPDATED
+
+  # cancellation / recovery
+  LOTTERY_CANCELED
+  EMERGENCY_RECOVERY
+
+  # allocations / claims
+  PRIZE_ALLOCATED
+  REFUND_ALLOCATED
+  FUNDS_CLAIMED
+  NATIVE_REFUND_ALLOCATED
+  NATIVE_CLAIMED
+  PROTOCOL_FEES_COLLECTED
+
+  # admin / maintenance
+  ENTROPY_PROVIDER_UPDATED
+  ENTROPY_CONTRACT_UPDATED
+  CALLBACK_GAS_LIMIT_UPDATED
+  LOTTERY_OWNER_CHANGED
+  PAUSED
+  UNPAUSED
+  SURPLUS_SWEPT
+  NATIVE_SURPLUS_SWEPT
 }
 
-type RegistrarSet @entity(immutable: true) {
+"""
+One deployed lottery instance (LotterySingleWinnerV2).
+ID = lottery contract address (Bytes)
+"""
+type Raffle @entity(immutable: false) {
   id: Bytes!
-  registrar: Bytes! # address
-  authorized: Boolean! # bool
+
+  # --- canonical discovery
+  deployer: Bytes
+  registry: Bytes
+  typeId: BigInt
+  registryIndex: BigInt
+  isRegistered: Boolean!
+  registeredAt: BigInt
+
+  # --- immutable creation metadata (from LotteryDeployed)
+  creator: Bytes!
+  name: String!
+  createdAtBlock: BigInt!
+  createdAtTimestamp: BigInt!
+  creationTx: Bytes!
+
+  usdc: Bytes!
+  entropy: Bytes!
+  entropyProvider: Bytes!
+  feeRecipient: Bytes!
+  protocolFeePercent: BigInt!
+
+  # --- V2 additions (from Deployer ConfigUpdated / LotteryDeployed and/or Lottery events)
+  callbackGasLimit: BigInt!
+  minPurchaseAmount: BigInt!
+
+  winningPot: BigInt!
+  ticketPrice: BigInt!
+  deadline: BigInt!
+  minTickets: BigInt!
+  maxTickets: BigInt!
+
+  # --- lifecycle (from LotterySingleWinnerV2 events)
+  status: RaffleStatus!
+  sold: BigInt!
+  ticketRevenue: BigInt!
+
+  finalizeRequestId: BigInt
+  finalizedAt: BigInt
+  selectedProvider: Bytes
+
+  winner: Bytes
+  winningTicketIndex: BigInt
+  completedAt: BigInt
+
+  canceledReason: String
+  canceledAt: BigInt
+  soldAtCancel: BigInt
+
+  paused: Boolean!
+
+  # --- indexing metadata
+  lastUpdatedBlock: BigInt!
+  lastUpdatedTimestamp: BigInt!
+
+  # --- audit trail
+  events: [RaffleEvent!]! @derivedFrom(field: "raffle")
+}
+
+"""
+Factory config (SingleWinnerDeployerV2.ConfigUpdated).
+ID = deployer address (Bytes)
+"""
+type FactoryConfig @entity(immutable: false) {
+  id: Bytes!
+
+  usdc: Bytes!
+  entropy: Bytes!
+  provider: Bytes!
+  feeRecipient: Bytes!
+  protocolFeePercent: BigInt!
+
+  # --- V2 addition
+  callbackGasLimit: BigInt!
+
+  updatedAtBlock: BigInt!
+  updatedAtTimestamp: BigInt!
+  updatedTx: Bytes!
+}
+
+###############################################################################
+# Admin / ownership tracking (optional but useful for UI)
+###############################################################################
+
+type DeployerOwner @entity(immutable: false) {
+  id: Bytes! # deployer address
+  owner: Bytes!
+  updatedAtBlock: BigInt!
+  updatedAtTimestamp: BigInt!
+  updatedTx: Bytes!
+}
+
+type RegistryOwner @entity(immutable: false) {
+  id: Bytes! # registry address
+  owner: Bytes!
+  updatedAtBlock: BigInt!
+  updatedAtTimestamp: BigInt!
+  updatedTx: Bytes!
+}
+
+type Registrar @entity(immutable: false) {
+  id: Bytes! # registrar address
+  registry: Bytes!
+  authorized: Boolean!
+  updatedAtBlock: BigInt!
+  updatedAtTimestamp: BigInt!
+  updatedTx: Bytes!
+}
+
+###############################################################################
+# Audit trail / transparency events (for “shield modal”)
+###############################################################################
+
+type RaffleEvent @entity(immutable: true) {
+  id: Bytes!
+  raffle: Raffle!
+  type: RaffleEventType!
+
+  # Common metadata
   blockNumber: BigInt!
   blockTimestamp: BigInt!
-  transactionHash: Bytes!
+  txHash: Bytes!
+  logIndex: BigInt!
+
+  # Generic fields (filled depending on event type)
+  actor: Bytes
+  target: Bytes
+  amount: BigInt
+  amount2: BigInt
+  uintValue: BigInt
+  boolValue: Boolean
+  text: String
+  reasonCode: Int
+  requestId: BigInt
 }
