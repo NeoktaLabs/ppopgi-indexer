@@ -30,6 +30,9 @@ dataSources:
       abis:
         - name: SingleWinnerDeployerV2
           file: ./abis/SingleWinnerDeployerV2.json
+        # ✅ Needed because handleLotteryDeployed calls LotterySingleWinnerV2.try_minPurchaseAmount()
+        - name: LotterySingleWinnerV2
+          file: ./abis/LotterySingleWinnerV2.json
       eventHandlers:
         - event: "ConfigUpdated(address,address,address,uint32,address,uint256)"
           handler: handleConfigUpdated
