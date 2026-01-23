@@ -66,6 +66,17 @@ export function handleLotteryDeployed(event: LotteryDeployedEvent): void {
     raffle.sold = BigInt.zero();
     raffle.ticketRevenue = BigInt.zero();
 
+    // required numeric fields (avoid nulls)
+    raffle.callbackGasLimit = BigInt.zero();
+    raffle.minPurchaseAmount = BigInt.zero();
+    raffle.winningPot = BigInt.zero();
+    raffle.ticketPrice = BigInt.zero();
+    raffle.deadline = BigInt.zero();
+    raffle.minTickets = BigInt.zero();
+    raffle.maxTickets = BigInt.zero();
+    raffle.protocolFeePercent = BigInt.zero();
+
+    // optional fields
     raffle.winner = null;
     raffle.winningTicketIndex = null;
     raffle.finalizeRequestId = null;
@@ -76,22 +87,31 @@ export function handleLotteryDeployed(event: LotteryDeployedEvent): void {
     raffle.canceledAt = null;
     raffle.soldAtCancel = null;
 
-    // (registry fallback might have created it first; but for brand new, set these now)
+    // optional registry fields
     raffle.registry = null;
     raffle.registryIndex = null;
     raffle.typeId = null;
     raffle.registeredAt = null;
+
+    // required address fields (safe placeholders until overwritten below)
+    raffle.creator = event.params.creator;
+    raffle.name = event.params.name;
+    raffle.createdAtBlock = event.block.number;
+    raffle.createdAtTimestamp = event.block.timestamp;
+    raffle.creationTx = event.transaction.hash;
+
+    raffle.usdc = event.params.usdc;
+    raffle.entropy = event.params.entropy;
+    raffle.entropyProvider = event.params.entropyProvider;
+    raffle.feeRecipient = event.params.feeRecipient;
   }
 
-  // --- ALWAYS backfill from deployer event (this is the fix) ---
+  // --- ALWAYS backfill from deployer event ---
   raffle.deployer = event.address;
 
-  // immutable creation metadata (if it was created via registry fallback, overwrite placeholders)
   raffle.creator = event.params.creator;
   raffle.name = event.params.name;
 
-  // createdAt* should reflect the deploy tx if we missed it before
-  // (safe to overwrite if registry fallback created it using a later block)
   raffle.createdAtBlock = event.block.number;
   raffle.createdAtTimestamp = event.block.timestamp;
   raffle.creationTx = event.transaction.hash;
@@ -102,18 +122,16 @@ export function handleLotteryDeployed(event: LotteryDeployedEvent): void {
   raffle.feeRecipient = event.params.feeRecipient;
   raffle.protocolFeePercent = event.params.protocolFeePercent;
 
-  // emitted in deployer event
   raffle.callbackGasLimit = event.params.callbackGasLimit;
 
-  // ✅ IMPORTANT: these were missing in your else branch
   raffle.winningPot = event.params.winningPot;
   raffle.ticketPrice = event.params.ticketPrice;
   raffle.deadline = event.params.deadline;
   raffle.minTickets = event.params.minTickets;
   raffle.maxTickets = event.params.maxTickets;
 
-  // minPurchaseAmount is not in deployer event; fetch from contract if we don't have it yet
-  if (raffle.minPurchaseAmount == null || raffle.minPurchaseAmount.equals(BigInt.zero())) {
+  // minPurchaseAmount is not in deployer event; fetch if still zero
+  if (raffle.minPurchaseAmount.equals(BigInt.zero())) {
     const lot = LotterySingleWinnerV2Contract.bind(raffleId);
     const minTry = lot.try_minPurchaseAmount();
     raffle.minPurchaseAmount = minTry.reverted ? BigInt.zero() : minTry.value;
@@ -123,7 +141,6 @@ export function handleLotteryDeployed(event: LotteryDeployedEvent): void {
   raffle.save();
 
   // Create template to index this lottery instance
-  // (creating twice is fine; The Graph ignores duplicates)
   LotterySingleWinnerTemplate.create(raffleId);
 
   // audit event
