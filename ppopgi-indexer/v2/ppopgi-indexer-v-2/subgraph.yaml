@@ -12,7 +12,7 @@ dataSources:
   #    - Stores creation metadata
   # ============================================================
   - kind: ethereum
-    name: SingleWinnerDeployer
+    name: SingleWinnerDeployerv2
     network: etherlink-mainnet
     source:
       address: "0x5dbDC8536164DFE454331e4EdE469B6a3FCc2922"
@@ -37,7 +37,7 @@ dataSources:
           handler: handleDeployerOwnershipTransferred
         - event: "LotteryDeployed(indexed address,indexed address,uint256,uint256,string,address,address,address,uint32,address,uint256,uint64,uint64,uint64)"
           handler: handleLotteryDeployed
-      file: ./src/single-winner-deployer.ts
+      file: ./src/single-winner-deployer-v2.ts
 
   # ============================================================
   # 2) LotteryRegistry
@@ -76,7 +76,7 @@ dataSources:
 # ==============================================================
 templates:
   - kind: ethereum
-    name: LotterySingleWinner
+    name: LotterySingleWinnerV2
     network: etherlink-mainnet
     source:
       abi: LotterySingleWinnerV2
@@ -145,4 +145,4 @@ templates:
         - event: "NativeSurplusSwept(indexed address,uint256)"
           handler: handleNativeSurplusSwept
 
-      file: ./src/lottery-single-winner.ts
+      file: ./src/lottery-single-winner-v2.ts
