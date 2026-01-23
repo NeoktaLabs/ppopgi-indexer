@@ -12,12 +12,12 @@ dataSources:
   #    - Stores creation metadata
   # ============================================================
   - kind: ethereum
-    name: SingleWinnerDeployerv2
+    name: SingleWinnerDeployer
     network: etherlink-mainnet
     source:
       address: "0x5dbDC8536164DFE454331e4EdE469B6a3FCc2922"
       abi: SingleWinnerDeployerV2
-      startBlock: 36324588
+      startBlock: 37100700
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -49,7 +49,7 @@ dataSources:
     source:
       address: "0x1CD24E0C49b1B61ff07be12fBa3ce58eCb20b098"
       abi: LotteryRegistry
-      startBlock: 36324588
+      startBlock: 37100700
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -76,7 +76,7 @@ dataSources:
 # ==============================================================
 templates:
   - kind: ethereum
-    name: LotterySingleWinnerV2
+    name: LotterySingleWinner
     network: etherlink-mainnet
     source:
       abi: LotterySingleWinnerV2
