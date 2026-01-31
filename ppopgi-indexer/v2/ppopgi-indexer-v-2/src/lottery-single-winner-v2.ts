@@ -116,7 +116,7 @@ function backfillFromContract(r: Raffle, lotteryAddr: Address): void {
   if (r.status == "FUNDING_PENDING") {
     const s = lot.try_status();
     if (!s.reverted) {
-      const n = s.value.toI32();
+      const n = s.value; // ✅ already i32 (uint8 enum)
       if (n == 1) r.status = "OPEN";
       else if (n == 2) r.status = "DRAWING";
       else if (n == 3) r.status = "COMPLETED";
