@@ -21,6 +21,7 @@ enum RaffleEventType {
   REGISTRATION_FAILED
 
   # participation
+  FUNDING_CONFIRMED
   TICKETS_PURCHASED
 
   # draw lifecycle
