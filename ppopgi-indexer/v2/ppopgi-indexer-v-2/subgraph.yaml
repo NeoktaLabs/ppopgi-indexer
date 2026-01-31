@@ -94,6 +94,10 @@ templates:
         - name: LotterySingleWinnerV2
           file: ./abis/LotterySingleWinnerV2.json
       eventHandlers:
+        # --- funding / open transition
+        - event: "FundingConfirmed(indexed address,uint256)"
+          handler: handleFundingConfirmed
+
         # --- participation
         - event: "TicketsPurchased(indexed address,uint256,uint256,uint256,uint256,bool)"
           handler: handleTicketsPurchased
