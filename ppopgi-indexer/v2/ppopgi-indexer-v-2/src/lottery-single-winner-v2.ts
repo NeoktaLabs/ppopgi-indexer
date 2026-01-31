@@ -3,6 +3,7 @@
 import { Address, BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts";
 
 import {
+  FundingConfirmed as FundingConfirmedEvent,
   TicketsPurchased as TicketsPurchasedEvent,
   LotteryFinalized as LotteryFinalizedEvent,
   WinnerPicked as WinnerPickedEvent,
@@ -109,6 +110,19 @@ function backfillFromContract(r: Raffle, lotteryAddr: Address): void {
     const g = lot.try_callbackGasLimit();
     if (!g.reverted) r.callbackGasLimit = g.value;
   }
+
+  // ✅ safety net: if status stuck in FUNDING_PENDING (due to missing event),
+  // backfill it from the contract's status() value.
+  if (r.status == "FUNDING_PENDING") {
+    const s = lot.try_status();
+    if (!s.reverted) {
+      const n = s.value.toI32();
+      if (n == 1) r.status = "OPEN";
+      else if (n == 2) r.status = "DRAWING";
+      else if (n == 3) r.status = "COMPLETED";
+      else if (n == 4) r.status = "CANCELED";
+    }
+  }
 }
 
 function mustLoadRaffle(id: Bytes, event: ethereum.Event): Raffle {
@@ -155,6 +169,23 @@ function mustLoadRaffle(id: Bytes, event: ethereum.Event): Raffle {
   backfillFromContract(r as Raffle, event.address);
 
   return r as Raffle;
+}
+
+// --- funding / open transition
+export function handleFundingConfirmed(event: FundingConfirmedEvent): void {
+  const raffleId = event.address;
+  const raffle = mustLoadRaffle(raffleId, event);
+
+  // ✅ missing transition that makes cards show "Open"
+  raffle.status = "OPEN";
+
+  touchRaffle(raffle, event);
+  raffle.save();
+
+  const ev = createRaffleEvent(raffleId, "FUNDING_CONFIRMED", event);
+  ev.actor = event.params.funder;
+  ev.amount = event.params.amount;
+  ev.save();
 }
 
 // --- participation
