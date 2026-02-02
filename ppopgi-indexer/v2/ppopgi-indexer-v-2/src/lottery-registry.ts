@@ -18,7 +18,7 @@ export function handleLotteryRegistered(event: LotteryRegisteredEvent): void {
 
   let raffle = Raffle.load(raffleId);
   const wasMissing = raffle == null;
-  const wasRegistered = raffle ? raffle.isRegistered : false;
+  const wasRegistered = raffle != null ? raffle.isRegistered : false;
 
   if (raffle == null) {
     // Fallback: raffle discovered via registry (if deployer indexing started later).
