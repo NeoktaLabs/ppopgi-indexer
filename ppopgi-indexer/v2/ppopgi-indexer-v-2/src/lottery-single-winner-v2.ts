@@ -1,4 +1,4 @@
-// src/lottery-single-winner.ts (V2-adapted, updated full file, SAME NAMES)
+// src/lottery-single-winner-v2.ts (V2-adapted, updated full file, SAME NAMES)
 
 import { Address, BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts";
 
