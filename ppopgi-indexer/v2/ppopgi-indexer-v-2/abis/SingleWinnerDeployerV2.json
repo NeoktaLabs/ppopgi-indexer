@@ -2,55 +2,6 @@
 	{
 		"inputs": [
 			{
-				"internalType": "string",
-				"name": "name",
-				"type": "string"
-			},
-			{
-				"internalType": "uint256",
-				"name": "ticketPrice",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "winningPot",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint64",
-				"name": "minTickets",
-				"type": "uint64"
-			},
-			{
-				"internalType": "uint64",
-				"name": "maxTickets",
-				"type": "uint64"
-			},
-			{
-				"internalType": "uint64",
-				"name": "durationSeconds",
-				"type": "uint64"
-			},
-			{
-				"internalType": "uint32",
-				"name": "minPurchaseAmount",
-				"type": "uint32"
-			}
-		],
-		"name": "createSingleWinnerLottery",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "lotteryAddr",
-				"type": "address"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
 				"internalType": "address",
 				"name": "_owner",
 				"type": "address"
@@ -305,54 +256,29 @@
 		"type": "event"
 	},
 	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_usdc",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "_entropy",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "_provider",
-				"type": "address"
-			},
+		"inputs": [],
+		"name": "DEFAULT_CALLBACK_GAS_LIMIT",
+		"outputs": [
 			{
 				"internalType": "uint32",
-				"name": "_callbackGasLimit",
+				"name": "",
 				"type": "uint32"
-			},
-			{
-				"internalType": "address",
-				"name": "_fee",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "_percent",
-				"type": "uint256"
 			}
 		],
-		"name": "setConfig",
-		"outputs": [],
-		"stateMutability": "nonpayable",
+		"stateMutability": "view",
 		"type": "function"
 	},
 	{
-		"inputs": [
+		"inputs": [],
+		"name": "SINGLE_WINNER_TYPE_ID",
+		"outputs": [
 			{
-				"internalType": "address",
-				"name": "newOwner",
-				"type": "address"
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
 			}
 		],
-		"name": "transferOwnership",
-		"outputs": [],
-		"stateMutability": "nonpayable",
+		"stateMutability": "view",
 		"type": "function"
 	},
 	{
@@ -369,16 +295,52 @@
 		"type": "function"
 	},
 	{
-		"inputs": [],
-		"name": "DEFAULT_CALLBACK_GAS_LIMIT",
-		"outputs": [
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "name",
+				"type": "string"
+			},
+			{
+				"internalType": "uint256",
+				"name": "ticketPrice",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint256",
+				"name": "winningPot",
+				"type": "uint256"
+			},
+			{
+				"internalType": "uint64",
+				"name": "minTickets",
+				"type": "uint64"
+			},
+			{
+				"internalType": "uint64",
+				"name": "maxTickets",
+				"type": "uint64"
+			},
+			{
+				"internalType": "uint64",
+				"name": "durationSeconds",
+				"type": "uint64"
+			},
 			{
 				"internalType": "uint32",
-				"name": "",
+				"name": "minPurchaseAmount",
 				"type": "uint32"
 			}
 		],
-		"stateMutability": "view",
+		"name": "createSingleWinnerLottery",
+		"outputs": [
+			{
+				"internalType": "address",
+				"name": "lotteryAddr",
+				"type": "address"
+			}
+		],
+		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{
@@ -473,16 +435,54 @@
 		"type": "function"
 	},
 	{
-		"inputs": [],
-		"name": "SINGLE_WINNER_TYPE_ID",
-		"outputs": [
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "_usdc",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "_entropy",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "_provider",
+				"type": "address"
+			},
+			{
+				"internalType": "uint32",
+				"name": "_callbackGasLimit",
+				"type": "uint32"
+			},
+			{
+				"internalType": "address",
+				"name": "_fee",
+				"type": "address"
+			},
 			{
 				"internalType": "uint256",
-				"name": "",
+				"name": "_percent",
 				"type": "uint256"
 			}
 		],
-		"stateMutability": "view",
+		"name": "setConfig",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "newOwner",
+				"type": "address"
+			}
+		],
+		"name": "transferOwnership",
+		"outputs": [],
+		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{
