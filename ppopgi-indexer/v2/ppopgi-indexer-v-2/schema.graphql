@@ -116,6 +116,8 @@ type Raffle @entity(immutable: false) {
 
   # --- audit trail
   events: [RaffleEvent!]! @derivedFrom(field: "raffle")
+
+  participants: [RaffleParticipant!]! @derivedFrom(field: "raffle")
 }
 
 """
