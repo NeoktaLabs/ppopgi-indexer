@@ -90,6 +90,7 @@ templates:
       entities:
         - Raffle
         - RaffleEvent
+        - RaffleParticipant
       abis:
         - name: LotterySingleWinnerV2
           file: ./abis/LotterySingleWinnerV2.json

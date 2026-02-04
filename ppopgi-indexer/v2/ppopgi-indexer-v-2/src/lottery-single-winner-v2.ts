@@ -1,5 +1,6 @@
 // src/lottery-single-winner-v2.ts (V2-adapted, updated full file, SAME NAMES)
 
+import { crypto } from "@graphprotocol/graph-ts";
 import { Address, BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts";
 
 import {
@@ -28,7 +29,8 @@ import {
   LotterySingleWinnerV2 as LotteryContract,
 } from "../generated/templates/LotterySingleWinner/LotterySingleWinnerV2";
 
-import { Raffle } from "../generated/schema";
+import { Raffle, RaffleParticipant } from "../generated/schema";
+
 import { createRaffleEvent, touchRaffle } from "./utils";
 
 /**
@@ -69,6 +71,11 @@ function backfillFromContract(r: Raffle, lotteryAddr: Address): void {
     const v = lot.try_minPurchaseAmount();
     if (!v.reverted) r.minPurchaseAmount = v.value;
   }
+
+  function participantId(raffleId: Bytes, buyer: Address): Bytes {
+  // keccak256(raffleId + buyer)
+  return crypto.keccak256(raffleId.concat(buyer as Bytes));
+}
 
   // addresses
   if (r.usdc.equals(Address.zero())) {
@@ -188,26 +195,48 @@ export function handleFundingConfirmed(event: FundingConfirmedEvent): void {
   ev.save();
 }
 
-// --- participation
 export function handleTicketsPurchased(event: TicketsPurchasedEvent): void {
   const raffleId = event.address;
   const raffle = mustLoadRaffle(raffleId, event);
 
   raffle.sold = event.params.totalSold;
 
-  // ✅ safer than incrementing by totalCost (avoids drift)
   const lot = LotteryContract.bind(event.address);
   const rev = lot.try_ticketRevenue();
   if (!rev.reverted) {
     raffle.ticketRevenue = rev.value;
   } else {
-    // fallback: keep previous behavior if read fails
     raffle.ticketRevenue = raffle.ticketRevenue.plus(event.params.totalCost);
   }
+
+  // ✅ NEW: participants aggregation
+  const buyer = event.params.buyer;
+  const pid = participantId(raffleId as Bytes, buyer);
+  let p = RaffleParticipant.load(pid);
+
+  if (p == null) {
+    p = new RaffleParticipant(pid);
+    p.raffle = raffleId as Bytes;
+    p.buyer = buyer as Bytes;
+    p.ticketsPurchased = BigInt.zero();
+
+    p.firstSeenBlock = event.block.number;
+    p.firstSeenTimestamp = event.block.timestamp;
+  }
+
+  p.ticketsPurchased = p.ticketsPurchased.plus(event.params.count);
+  p.lastSeenBlock = event.block.number;
+  p.lastSeenTimestamp = event.block.timestamp;
+
+  p.lastRangeIndex = event.params.rangeIndex;
+  p.lastTotalSold = event.params.totalSold;
+
+  p.save();
 
   touchRaffle(raffle, event);
   raffle.save();
 
+  // your existing audit trail event (keep as-is)
   const ev = createRaffleEvent(raffleId, "TICKETS_PURCHASED", event);
   ev.actor = event.params.buyer;
   ev.amount = event.params.totalCost;
@@ -215,6 +244,7 @@ export function handleTicketsPurchased(event: TicketsPurchasedEvent): void {
   ev.amount2 = event.params.totalSold;
   ev.save();
 }
+
 
 // --- draw lifecycle
 export function handleLotteryFinalized(event: LotteryFinalizedEvent): void {

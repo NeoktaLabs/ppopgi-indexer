@@ -194,3 +194,24 @@ type RaffleEvent @entity(immutable: true) {
   reasonCode: Int
   requestId: BigInt
 }
+
+"""
+Aggregated participation per raffle per buyer.
+ID = keccak256(raffleAddress + buyerAddress)
+"""
+type RaffleParticipant @entity(immutable: false) {
+  id: Bytes!
+
+  raffle: Raffle!
+  buyer: Bytes!
+
+  ticketsPurchased: BigInt!
+
+  firstSeenBlock: BigInt!
+  firstSeenTimestamp: BigInt!
+  lastSeenBlock: BigInt!
+  lastSeenTimestamp: BigInt!
+
+  lastRangeIndex: BigInt
+  lastTotalSold: BigInt
+}
