@@ -33,11 +33,17 @@ import { Raffle, RaffleParticipant } from "../generated/schema";
 
 import { createRaffleEvent, touchRaffle } from "./utils";
 
+function participantId(raffleId: Bytes, buyer: Address): Bytes {
+  // keccak256(raffleId + buyer)
+  return crypto.keccak256(raffleId.concat(buyer as Bytes));
+}
+
 /**
  * Backfill missing raffle fields directly from the lottery contract.
  * This is critical when your subgraph startBlock skips older deployer events:
  * the registry/template can discover a raffle, but without deployer metadata it stays at zeros.
  */
+
 function backfillFromContract(r: Raffle, lotteryAddr: Address): void {
   const lot = LotteryContract.bind(lotteryAddr);
 
@@ -71,11 +77,6 @@ function backfillFromContract(r: Raffle, lotteryAddr: Address): void {
     const v = lot.try_minPurchaseAmount();
     if (!v.reverted) r.minPurchaseAmount = v.value;
   }
-
-  function participantId(raffleId: Bytes, buyer: Address): Bytes {
-  // keccak256(raffleId + buyer)
-  return crypto.keccak256(raffleId.concat(buyer as Bytes));
-}
 
   // addresses
   if (r.usdc.equals(Address.zero())) {
