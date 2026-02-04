@@ -34,8 +34,8 @@ import { Raffle, RaffleParticipant } from "../generated/schema";
 import { createRaffleEvent, touchRaffle } from "./utils";
 
 function participantId(raffleId: Bytes, buyer: Address): Bytes {
-  // keccak256(raffleId + buyer)
-  return crypto.keccak256(raffleId.concat(buyer as Bytes));
+  const buyerBytes = Bytes.fromHexString(buyer.toHexString()) as Bytes;
+  return Bytes.fromByteArray(crypto.keccak256(raffleId.concat(buyerBytes)));
 }
 
 /**
