@@ -1,0 +1,8 @@
+{
+  "etherlink-mainnet": {
+    "LotteryRegistry": {
+      "address": "0x1CD24E0C49b1B61ff07be12fBa3ce58eCb20b098",
+      "startBlock": 36324081
+    }
+  }
+}

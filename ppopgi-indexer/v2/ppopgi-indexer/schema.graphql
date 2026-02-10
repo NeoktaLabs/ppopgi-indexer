@@ -1,0 +1,28 @@
+type LotteryRegistered @entity(immutable: true) {
+  id: Bytes!
+  index: BigInt! # uint256
+  typeId: BigInt! # uint256
+  lottery: Bytes! # address
+  creator: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type OwnershipTransferred @entity(immutable: true) {
+  id: Bytes!
+  oldOwner: Bytes! # address
+  newOwner: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type RegistrarSet @entity(immutable: true) {
+  id: Bytes!
+  registrar: Bytes! # address
+  authorized: Boolean! # bool
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
