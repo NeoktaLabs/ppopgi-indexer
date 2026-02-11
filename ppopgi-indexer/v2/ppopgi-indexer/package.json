@@ -1,13 +1,13 @@
 {
-  "name": "ppopgi-indexer",
+  "name": "ppopgi-indexer-v-2",
   "license": "UNLICENSED",
   "scripts": {
     "codegen": "graph codegen",
     "build": "graph build",
-    "deploy": "graph deploy --node https://api.studio.thegraph.com/deploy/ ppopgi-indexer",
-    "create-local": "graph create --node http://localhost:8020/ ppopgi-indexer",
-    "remove-local": "graph remove --node http://localhost:8020/ ppopgi-indexer",
-    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 ppopgi-indexer",
+    "deploy": "graph deploy --node https://api.studio.thegraph.com/deploy/ ppopgi-indexer-v-2",
+    "create-local": "graph create --node http://localhost:8020/ ppopgi-indexer-v-2",
+    "remove-local": "graph remove --node http://localhost:8020/ ppopgi-indexer-v-2",
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 ppopgi-indexer-v-2",
     "test": "graph test"
   },
   "dependencies": {
