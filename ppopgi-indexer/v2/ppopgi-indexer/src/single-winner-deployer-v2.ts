@@ -141,7 +141,7 @@ export function handleLotteryDeployed(event: LotteryDeployedEvent): void {
   raffle.save();
 
   // Create template to index this lottery instance
-  LotterySingleWinnerTemplate.create(raffleId);
+  // LotterySingleWinnerTemplate.create(raffleId);
 
   // audit event
   const ev = createRaffleEvent(raffleId, "LOTTERY_DEPLOYED", event);
