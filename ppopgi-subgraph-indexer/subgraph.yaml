@@ -1,0 +1,32 @@
+specVersion: 1.3.0
+indexerHints:
+  prune: auto
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: LotteryRegistry
+    network: etherlink-mainnet
+    source:
+      address: "0xa916e20AbF4d57bCb98f7A845eb74f2EB4Dcbed2"
+      abi: LotteryRegistry
+      startBlock: 39488784
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - LotteryRegistered
+        - OwnershipTransferred
+        - RegistrarSet
+      abis:
+        - name: LotteryRegistry
+          file: ./abis/LotteryRegistry.json
+      eventHandlers:
+        - event: LotteryRegistered(indexed uint256,indexed uint256,indexed address,address)
+          handler: handleLotteryRegistered
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleOwnershipTransferred
+        - event: RegistrarSet(indexed address,bool)
+          handler: handleRegistrarSet
+      file: ./src/lottery-registry.ts
