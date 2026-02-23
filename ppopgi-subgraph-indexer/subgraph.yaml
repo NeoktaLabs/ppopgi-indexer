@@ -11,9 +11,9 @@ dataSources:
     name: LotteryRegistry
     network: etherlink-mainnet
     source:
-      address: "0xREGISTRY_ADDRESS"
+      address: "0xa916e20AbF4d57bCb98f7A845eb74f2EB4Dcbed2"
       abi: LotteryRegistry
-      startBlock: START_BLOCK_REGISTRY
+      startBlock: 39492000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -39,9 +39,9 @@ dataSources:
     name: SingleWinnerDeployer
     network: etherlink-mainnet
     source:
-      address: "0xDEPLOYER_ADDRESS"
+      address: "0xAd0c8Ba0E4e519B4EA97cE945A20E2716dDbDf7D"
       abi: SingleWinnerDeployer
-      startBlock: START_BLOCK_DEPLOYER
+      startBlock: 39492000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -60,7 +60,7 @@ dataSources:
           handler: handleDeployerOwnershipTransferred
         - event: LotteryDeployed(indexed address,indexed address,uint256,uint256,string,address,address,address,uint32,address,uint256,uint64,uint64,uint64)
           handler: handleLotteryDeployed
-      file: ./src/deployer.ts
+      file: ./src/singlewinnerdeployer.ts
 
 templates:
   - name: SingleWinnerLottery
@@ -118,4 +118,4 @@ templates:
           handler: handleTicketsPurchased
         - event: WinnerPicked(indexed address,uint256,uint256)
           handler: handleWinnerPicked
-      file: ./src/lottery.ts
+      file: ./src/singlewinnerlottery.ts
