@@ -50,7 +50,8 @@ const CLAIM_SELECTOR = "0x4e71d92d";
 
 function txSelector(txInput: Bytes): string {
   if (txInput.length < 4) return "";
-  return txInput.subarray(0, 4).toHexString();
+  // subarray() returns Uint8Array; convert back to Bytes before calling toHexString()
+  return Bytes.fromUint8Array(txInput.subarray(0, 4)).toHexString();
 }
 
 function isClaimTx(input: Bytes): bool {
