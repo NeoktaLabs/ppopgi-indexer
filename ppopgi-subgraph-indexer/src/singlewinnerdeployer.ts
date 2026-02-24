@@ -1,4 +1,4 @@
-import { Address, BigInt, Bytes } from "@graphprotocol/graph-ts";
+import { BigInt, Bytes } from "@graphprotocol/graph-ts";
 import {
   ConfigUpdated,
   DeployerOwnershipTransferred,
@@ -41,7 +41,10 @@ export function handleConfigUpdated(event: ConfigUpdated): void {
   d.usdc = event.params.usdc;
   d.entropy = event.params.entropy;
   d.provider = event.params.provider;
-  d.callbackGasLimit = BigInt.fromI32(event.params.callbackGasLimit as i32);
+
+  // uint32 -> BigInt
+  d.callbackGasLimit = BigInt.fromI32(event.params.callbackGasLimit);
+
   d.feeRecipient = event.params.feeRecipient;
   d.protocolFeePercent = event.params.protocolFeePercent;
 
@@ -60,7 +63,10 @@ export function handleConfigUpdated(event: ConfigUpdated): void {
   e.usdc = event.params.usdc;
   e.entropy = event.params.entropy;
   e.provider = event.params.provider;
-  e.callbackGasLimit = BigInt.fromI32(event.params.callbackGasLimit as i32);
+
+  // uint32 -> BigInt
+  e.callbackGasLimit = BigInt.fromI32(event.params.callbackGasLimit);
+
   e.feeRecipient = event.params.feeRecipient;
   e.protocolFeePercent = event.params.protocolFeePercent;
   e.save();
@@ -91,15 +97,20 @@ export function handleLotteryDeployed(event: LotteryDeployed): void {
   lot.usdcToken = event.params.usdc;
   lot.entropy = event.params.entropy;
   lot.entropyProvider = event.params.entropyProvider;
-  lot.callbackGasLimit = BigInt.fromI32(event.params.callbackGasLimit as i32);
+
+  // uint32 -> BigInt
+  lot.callbackGasLimit = BigInt.fromI32(event.params.callbackGasLimit);
+
   lot.feeRecipient = event.params.feeRecipient;
   lot.protocolFeePercent = event.params.protocolFeePercent;
 
   lot.ticketPrice = event.params.ticketPrice;
   lot.winningPot = event.params.winningPot;
-  lot.deadline = BigInt.fromU64(event.params.deadline);
-  lot.minTickets = BigInt.fromU64(event.params.minTickets);
-  lot.maxTickets = BigInt.fromU64(event.params.maxTickets);
+
+  // These are already BigInt in generated typings (uint64 -> BigInt)
+  lot.deadline = event.params.deadline;
+  lot.minTickets = event.params.minTickets;
+  lot.maxTickets = event.params.maxTickets;
 
   lot.creator = event.params.creator;
 
@@ -122,12 +133,17 @@ export function handleLotteryDeployed(event: LotteryDeployed): void {
   e.usdc = event.params.usdc;
   e.entropy = event.params.entropy;
   e.entropyProvider = event.params.entropyProvider;
-  e.callbackGasLimit = BigInt.fromI32(event.params.callbackGasLimit as i32);
+
+  // uint32 -> BigInt
+  e.callbackGasLimit = BigInt.fromI32(event.params.callbackGasLimit);
+
   e.feeRecipient = event.params.feeRecipient;
   e.protocolFeePercent = event.params.protocolFeePercent;
-  e.deadline = BigInt.fromU64(event.params.deadline);
-  e.minTickets = BigInt.fromU64(event.params.minTickets);
-  e.maxTickets = BigInt.fromU64(event.params.maxTickets);
+
+  // already BigInt (uint64 -> BigInt)
+  e.deadline = event.params.deadline;
+  e.minTickets = event.params.minTickets;
+  e.maxTickets = event.params.maxTickets;
 
   e.save();
 }
