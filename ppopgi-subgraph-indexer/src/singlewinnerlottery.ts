@@ -82,13 +82,13 @@ function loadOrCreateLottery(addr: Address, ts: BigInt): Lottery {
   if (!prov.reverted) lot.entropyProvider = prov.value;
 
   const gas = c.try_callbackGasLimit();
-  if (!gas.reverted) lot.callbackGasLimit = BigInt.fromI32(gas.value as i32);
+  if (!gas.reverted) lot.callbackGasLimit = gas.value; // already BigInt
 
   const createdAt = c.try_createdAt();
-  if (!createdAt.reverted) lot.createdAt = BigInt.fromU64(createdAt.value);
+  if (!createdAt.reverted) lot.createdAt = createdAt.value; // already BigInt
 
   const deadline = c.try_deadline();
-  if (!deadline.reverted) lot.deadline = BigInt.fromU64(deadline.value);
+  if (!deadline.reverted) lot.deadline = deadline.value; // already BigInt
 
   const ticketPrice = c.try_ticketPrice();
   if (!ticketPrice.reverted) lot.ticketPrice = ticketPrice.value;
@@ -97,13 +97,13 @@ function loadOrCreateLottery(addr: Address, ts: BigInt): Lottery {
   if (!winningPot.reverted) lot.winningPot = winningPot.value;
 
   const minTickets = c.try_minTickets();
-  if (!minTickets.reverted) lot.minTickets = BigInt.fromU64(minTickets.value);
+  if (!minTickets.reverted) lot.minTickets = minTickets.value; // already BigInt
 
   const maxTickets = c.try_maxTickets();
-  if (!maxTickets.reverted) lot.maxTickets = BigInt.fromU64(maxTickets.value);
+  if (!maxTickets.reverted) lot.maxTickets = maxTickets.value; // already BigInt
 
   const minBuy = c.try_minPurchaseAmount();
-  if (!minBuy.reverted) lot.minPurchaseAmount = BigInt.fromI32(minBuy.value as i32);
+  if (!minBuy.reverted) lot.minPurchaseAmount = minBuy.value; // already BigInt
 
   const winner = c.try_winner();
   if (!winner.reverted) lot.winner = winner.value;
@@ -112,10 +112,10 @@ function loadOrCreateLottery(addr: Address, ts: BigInt): Lottery {
   if (!sel.reverted) lot.selectedProvider = sel.value;
 
   const req = c.try_entropyRequestId();
-  if (!req.reverted) lot.entropyRequestId = BigInt.fromU64(req.value);
+  if (!req.reverted) lot.entropyRequestId = req.value; // already BigInt
 
   const drawAt = c.try_drawingRequestedAt();
-  if (!drawAt.reverted) lot.drawingRequestedAt = BigInt.fromU64(drawAt.value);
+  if (!drawAt.reverted) lot.drawingRequestedAt = drawAt.value; // already BigInt
 
   const soldAtDrawing = c.try_soldAtDrawing();
   if (!soldAtDrawing.reverted) lot.soldAtDrawing = soldAtDrawing.value;
@@ -124,7 +124,7 @@ function loadOrCreateLottery(addr: Address, ts: BigInt): Lottery {
   if (!soldAtCancel.reverted) lot.soldAtCancel = soldAtCancel.value;
 
   const canceledAt = c.try_canceledAt();
-  if (!canceledAt.reverted) lot.canceledAt = BigInt.fromU64(canceledAt.value);
+  if (!canceledAt.reverted) lot.canceledAt = canceledAt.value; // already BigInt
 
   const cpr = c.try_creatorPotRefunded();
   if (!cpr.reverted) lot.creatorPotRefunded = cpr.value;
@@ -194,7 +194,8 @@ export function handleTicketsPurchased(event: TicketsPurchased): void {
 export function handleLotteryFinalized(event: LotteryFinalized): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
-  lot.entropyRequestId = BigInt.fromU64(event.params.requestId);
+  // requestId is already BigInt in your generated bindings
+  lot.entropyRequestId = event.params.requestId;
   lot.selectedProvider = event.params.provider;
   lot.drawingRequestedAt = event.block.timestamp;
   lot.sold = event.params.totalSold;
@@ -203,7 +204,7 @@ export function handleLotteryFinalized(event: LotteryFinalized): void {
 
   const e = new LotteryFinalizedEvent(mkEventId(event.transaction.hash, event.logIndex));
   e.lottery = lot.id;
-  e.requestId = BigInt.fromU64(event.params.requestId);
+  e.requestId = event.params.requestId; // already BigInt
   e.totalSold = event.params.totalSold;
   e.provider = event.params.provider;
 
@@ -264,7 +265,7 @@ export function handleCallbackRejected(event: CallbackRejected): void {
 
   const e = new CallbackRejectedEvent(mkEventId(event.transaction.hash, event.logIndex));
   e.lottery = lot.id;
-  e.sequenceNumber = BigInt.fromU64(event.params.sequenceNumber);
+  e.sequenceNumber = event.params.sequenceNumber; // already BigInt
   e.reasonCode = event.params.reasonCode as i32;
 
   e.txHash = event.transaction.hash;
