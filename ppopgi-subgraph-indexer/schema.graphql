@@ -1,18 +1,18 @@
-type Registry @entity {
+type Registry @entity(immutable: false) {
   id: ID!                       # "registry"
   owner: Bytes
   totalLotteries: BigInt!
   latestLottery: Bytes
 }
 
-type Registrar @entity {
+type Registrar @entity(immutable: false) {
   id: ID!                       # registrar address
   authorized: Boolean!
   updatedAt: BigInt!
   updatedTx: Bytes!
 }
 
-type Deployer @entity {
+type Deployer @entity(immutable: false) {
   id: ID!                       # deployer address (single)
   owner: Bytes
 
@@ -28,7 +28,7 @@ type Deployer @entity {
   updatedTx: Bytes
 }
 
-type Lottery @entity {
+type Lottery @entity(immutable: false) {
   id: ID!                       # lottery address
 
   # Canonical registry metadata
@@ -82,7 +82,7 @@ type Lottery @entity {
 }
 
 # ---- Per-lottery per-user rollup (derived from events) ----
-type UserLottery @entity {
+type UserLottery @entity(immutable: false) {
   id: ID!                       # `${lottery}-${user}`
   lottery: Lottery!
   user: Bytes!
@@ -100,7 +100,7 @@ type UserLottery @entity {
 }
 
 # ---- Typed events (full coverage) ----
-type RegistryEvent @entity {
+type RegistryEvent @entity(immutable: true) {
   id: ID!                       # txHash-logIndex
   kind: String!
   registry: Bytes!
@@ -120,7 +120,7 @@ type RegistryEvent @entity {
   registryIndex: BigInt
 }
 
-type DeployerEvent @entity {
+type DeployerEvent @entity(immutable: true) {
   id: ID!
   kind: String!
   deployer: Bytes!
@@ -153,7 +153,7 @@ type DeployerEvent @entity {
   maxTickets: BigInt
 }
 
-type TicketPurchaseEvent @entity {
+type TicketPurchaseEvent @entity(immutable: true) {
   id: ID!
   lottery: Lottery!
   buyer: Bytes!
@@ -169,7 +169,7 @@ type TicketPurchaseEvent @entity {
   timestamp: BigInt!
 }
 
-type LotteryFinalizedEvent @entity {
+type LotteryFinalizedEvent @entity(immutable: true) {
   id: ID!
   lottery: Lottery!
   requestId: BigInt!
@@ -182,7 +182,7 @@ type LotteryFinalizedEvent @entity {
   timestamp: BigInt!
 }
 
-type WinnerPickedEvent @entity {
+type WinnerPickedEvent @entity(immutable: true) {
   id: ID!
   lottery: Lottery!
   winner: Bytes!
@@ -195,7 +195,7 @@ type WinnerPickedEvent @entity {
   timestamp: BigInt!
 }
 
-type LotteryCanceledEvent @entity {
+type LotteryCanceledEvent @entity(immutable: true) {
   id: ID!
   lottery: Lottery!
   reason: String!
@@ -209,7 +209,7 @@ type LotteryCanceledEvent @entity {
   timestamp: BigInt!
 }
 
-type CallbackRejectedEvent @entity {
+type CallbackRejectedEvent @entity(immutable: true) {
   id: ID!
   lottery: Lottery!
   sequenceNumber: BigInt!
@@ -221,7 +221,7 @@ type CallbackRejectedEvent @entity {
   timestamp: BigInt!
 }
 
-type PrizeAllocatedEvent @entity {
+type PrizeAllocatedEvent @entity(immutable: true) {
   id: ID!
   lottery: Lottery!
   user: Bytes!
@@ -234,7 +234,7 @@ type PrizeAllocatedEvent @entity {
   timestamp: BigInt!
 }
 
-type RefundAllocatedEvent @entity {
+type RefundAllocatedEvent @entity(immutable: true) {
   id: ID!
   lottery: Lottery!
   user: Bytes!
@@ -246,7 +246,7 @@ type RefundAllocatedEvent @entity {
   timestamp: BigInt!
 }
 
-type ProtocolFeesCollectedEvent @entity {
+type ProtocolFeesCollectedEvent @entity(immutable: true) {
   id: ID!
   lottery: Lottery!
   amount: BigInt!
@@ -257,7 +257,7 @@ type ProtocolFeesCollectedEvent @entity {
   timestamp: BigInt!
 }
 
-type FundingConfirmedEvent @entity {
+type FundingConfirmedEvent @entity(immutable: true) {
   id: ID!
   lottery: Lottery!
   funder: Bytes!
@@ -269,7 +269,7 @@ type FundingConfirmedEvent @entity {
   timestamp: BigInt!
 }
 
-type FundsClaimedEvent @entity {
+type FundsClaimedEvent @entity(immutable: true) {
   id: ID!
   lottery: Lottery!
   user: Bytes!
@@ -281,7 +281,7 @@ type FundsClaimedEvent @entity {
   timestamp: BigInt!
 }
 
-type TicketRefundClaimedEvent @entity {
+type TicketRefundClaimedEvent @entity(immutable: true) {
   id: ID!
   lottery: Lottery!
   user: Bytes!
@@ -293,7 +293,7 @@ type TicketRefundClaimedEvent @entity {
   timestamp: BigInt!
 }
 
-type ClaimedEvent @entity {
+type ClaimedEvent @entity(immutable: true) {
   id: ID!
   lottery: Lottery!
   user: Bytes!
@@ -307,7 +307,7 @@ type ClaimedEvent @entity {
   timestamp: BigInt!
 }
 
-type EmergencyRecoveryEvent @entity {
+type EmergencyRecoveryEvent @entity(immutable: true) {
   id: ID!
   lottery: Lottery!
 
