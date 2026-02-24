@@ -55,6 +55,8 @@ function loadOrCreateLottery(addr: Address, ts: BigInt): Lottery {
   }
 
   // Best-effort sync from contract for “100% match”
+  // NOTE: Do NOT read ticketRevenue from chain here, because we maintain it from TicketsPurchased events
+  // (otherwise it will get double-counted when we also add totalCost in the handler).
   const c = SingleWinnerLottery.bind(addr);
 
   const s = c.try_status();
@@ -129,9 +131,6 @@ function loadOrCreateLottery(addr: Address, ts: BigInt): Lottery {
   const cpr = c.try_creatorPotRefunded();
   if (!cpr.reverted) lot.creatorPotRefunded = cpr.value;
 
-  const rev = c.try_ticketRevenue();
-  if (!rev.reverted) lot.ticketRevenue = rev.value;
-
   const sold = c.try_getSold();
   if (!sold.reverted) lot.sold = sold.value;
 
@@ -165,7 +164,10 @@ export function handleTicketsPurchased(event: TicketsPurchased): void {
 
   // Update state from event (authoritative and cheaper)
   lot.sold = event.params.totalSold;
+
+  // Maintain ticketRevenue purely from events (do not also read chain value in loadOrCreateLottery)
   lot.ticketRevenue = lot.ticketRevenue.plus(event.params.totalCost);
+
   lot.save();
 
   // Per-user rollup
@@ -197,7 +199,10 @@ export function handleLotteryFinalized(event: LotteryFinalized): void {
   // requestId is already BigInt in your generated bindings
   lot.entropyRequestId = event.params.requestId;
   lot.selectedProvider = event.params.provider;
+
+  // event.block.timestamp should match contract's drawingRequestedAt, and avoids a read
   lot.drawingRequestedAt = event.block.timestamp;
+
   lot.sold = event.params.totalSold;
   lot.status = 2; // Drawing
   lot.save();
@@ -242,7 +247,10 @@ export function handleLotteryCanceled(event: LotteryCanceled): void {
   lot.status = 4; // Canceled
   lot.cancelReason = event.params.reason;
   lot.sold = event.params.sold;
+
+  // Here you set from event (fine). Note: this overwrites any event-derived counter on cancel.
   lot.ticketRevenue = event.params.ticketRevenue;
+
   lot.canceledAt = event.block.timestamp;
   lot.save();
 
@@ -342,10 +350,9 @@ export function handleFundingConfirmed(event: FundingConfirmed): void {
 export function handleFundsClaimed(event: FundsClaimed): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
-  const ul = loadOrCreateUserLottery(lot, event.params.user, event.block.timestamp, event.transaction.hash);
-  ul.fundsClaimedAmount = ul.fundsClaimedAmount.plus(event.params.amount);
-  ul.save();
-
+  // IMPORTANT:
+  // claim() emits FundsClaimed + TicketRefundClaimed + Claimed.
+  // To avoid double-counting user rollups, we only update UserLottery in handleClaimed().
   const e = new FundsClaimedEvent(mkEventId(event.transaction.hash, event.logIndex));
   e.lottery = lot.id;
   e.user = event.params.user;
@@ -361,10 +368,9 @@ export function handleFundsClaimed(event: FundsClaimed): void {
 export function handleTicketRefundClaimed(event: TicketRefundClaimed): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
-  const ul = loadOrCreateUserLottery(lot, event.params.user, event.block.timestamp, event.transaction.hash);
-  ul.ticketRefundAmount = ul.ticketRefundAmount.plus(event.params.amount);
-  ul.save();
-
+  // IMPORTANT:
+  // claim() emits FundsClaimed + TicketRefundClaimed + Claimed.
+  // To avoid double-counting user rollups, we only update UserLottery in handleClaimed().
   const e = new TicketRefundClaimedEvent(mkEventId(event.transaction.hash, event.logIndex));
   e.lottery = lot.id;
   e.user = event.params.user;
@@ -380,6 +386,7 @@ export function handleTicketRefundClaimed(event: TicketRefundClaimed): void {
 export function handleClaimed(event: Claimed): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
+  // Canonical rollup update (prevents double-counting with FundsClaimed/TicketRefundClaimed)
   const ul = loadOrCreateUserLottery(lot, event.params.user, event.block.timestamp, event.transaction.hash);
   ul.fundsClaimedAmount = ul.fundsClaimedAmount.plus(event.params.funds);
   ul.ticketRefundAmount = ul.ticketRefundAmount.plus(event.params.ticketRefund);
