@@ -1,4 +1,4 @@
-import { Address, BigInt, Bytes } from "@graphprotocol/graph-ts";
+import { BigInt, Bytes } from "@graphprotocol/graph-ts";
 import {
   LotteryRegistered,
   OwnershipTransferred,
@@ -37,7 +37,6 @@ export function handleRegistryOwnershipTransferred(event: OwnershipTransferred):
 }
 
 export function handleRegistrarSet(event: RegistrarSet): void {
-  // Registrar entity
   const id = event.params.registrar.toHexString();
   let r = Registrar.load(id);
   if (r == null) {
@@ -61,7 +60,6 @@ export function handleRegistrarSet(event: RegistrarSet): void {
 }
 
 export function handleLotteryRegistered(event: LotteryRegistered): void {
-  // Registry singleton
   let reg = Registry.load(REGISTRY_ID);
   if (reg == null) {
     reg = new Registry(REGISTRY_ID);
@@ -71,15 +69,12 @@ export function handleLotteryRegistered(event: LotteryRegistered): void {
   reg.latestLottery = event.params.lottery;
   reg.save();
 
-  // Lottery entity (canonical upsert)
   const lotAddr = event.params.lottery;
   const id = lotAddr.toHexString();
 
   let lot = Lottery.load(id);
   if (lot == null) {
     lot = new Lottery(id);
-
-    // defaults
     lot.typeId = event.params.typeId;
     lot.creator = event.params.creator;
     lot.registeredAt = event.block.timestamp;
@@ -91,10 +86,8 @@ export function handleLotteryRegistered(event: LotteryRegistered): void {
   lot.creator = event.params.creator;
   lot.registeredAt = event.block.timestamp;
   lot.registryIndex = event.params.index;
-
   lot.save();
 
-  // Audit event row
   const e = new RegistryEvent(mkEventId(event.transaction.hash, event.logIndex));
   e.kind = "LotteryRegistered";
   e.registry = event.address;
@@ -110,6 +103,7 @@ export function handleLotteryRegistered(event: LotteryRegistered): void {
 
   // Spawn template for SingleWinnerLottery only (typeId == 1)
   if (event.params.typeId.equals(TYPE_SINGLE_WINNER)) {
-    SingleWinnerLotteryTemplate.create(Address.fromBytes(lotAddr));
+    // lotAddr is already an Address
+    SingleWinnerLotteryTemplate.create(lotAddr);
   }
 }
