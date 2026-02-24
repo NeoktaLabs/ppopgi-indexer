@@ -42,8 +42,8 @@ export function handleConfigUpdated(event: ConfigUpdated): void {
   d.entropy = event.params.entropy;
   d.provider = event.params.provider;
 
-  // uint32 -> BigInt
-  d.callbackGasLimit = BigInt.fromI32(event.params.callbackGasLimit);
+  // callbackGasLimit is already BigInt in generated typings
+  d.callbackGasLimit = event.params.callbackGasLimit;
 
   d.feeRecipient = event.params.feeRecipient;
   d.protocolFeePercent = event.params.protocolFeePercent;
@@ -64,8 +64,8 @@ export function handleConfigUpdated(event: ConfigUpdated): void {
   e.entropy = event.params.entropy;
   e.provider = event.params.provider;
 
-  // uint32 -> BigInt
-  e.callbackGasLimit = BigInt.fromI32(event.params.callbackGasLimit);
+  // callbackGasLimit is already BigInt in generated typings
+  e.callbackGasLimit = event.params.callbackGasLimit;
 
   e.feeRecipient = event.params.feeRecipient;
   e.protocolFeePercent = event.params.protocolFeePercent;
@@ -98,8 +98,8 @@ export function handleLotteryDeployed(event: LotteryDeployed): void {
   lot.entropy = event.params.entropy;
   lot.entropyProvider = event.params.entropyProvider;
 
-  // uint32 -> BigInt
-  lot.callbackGasLimit = BigInt.fromI32(event.params.callbackGasLimit);
+  // callbackGasLimit is already BigInt in generated typings
+  lot.callbackGasLimit = event.params.callbackGasLimit;
 
   lot.feeRecipient = event.params.feeRecipient;
   lot.protocolFeePercent = event.params.protocolFeePercent;
@@ -134,8 +134,8 @@ export function handleLotteryDeployed(event: LotteryDeployed): void {
   e.entropy = event.params.entropy;
   e.entropyProvider = event.params.entropyProvider;
 
-  // uint32 -> BigInt
-  e.callbackGasLimit = BigInt.fromI32(event.params.callbackGasLimit);
+  // callbackGasLimit is already BigInt in generated typings
+  e.callbackGasLimit = event.params.callbackGasLimit;
 
   e.feeRecipient = event.params.feeRecipient;
   e.protocolFeePercent = event.params.protocolFeePercent;
