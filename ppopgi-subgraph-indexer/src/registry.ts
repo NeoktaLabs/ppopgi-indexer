@@ -1,3 +1,4 @@
+// registry.ts
 import { BigInt, Bytes } from "@graphprotocol/graph-ts";
 import {
   LotteryRegistered,
@@ -6,10 +7,8 @@ import {
 } from "../generated/LotteryRegistry/LotteryRegistry";
 
 import { Registry, Registrar, Lottery, RegistryEvent } from "../generated/schema";
-import { SingleWinnerLottery as SingleWinnerLotteryTemplate } from "../generated/templates";
 
 const REGISTRY_ID = "registry";
-const TYPE_SINGLE_WINNER = BigInt.fromI32(1);
 
 function mkEventId(tx: Bytes, logIndex: BigInt): string {
   return tx.toHexString() + "-" + logIndex.toString();
@@ -21,6 +20,7 @@ export function handleRegistryOwnershipTransferred(event: OwnershipTransferred):
     reg = new Registry(REGISTRY_ID);
     reg.totalLotteries = BigInt.zero();
   }
+
   reg.owner = event.params.newOwner;
   reg.save();
 
@@ -42,6 +42,7 @@ export function handleRegistrarSet(event: RegistrarSet): void {
   if (r == null) {
     r = new Registrar(id);
   }
+
   r.authorized = event.params.authorized;
   r.updatedAt = event.block.timestamp;
   r.updatedTx = event.transaction.hash;
@@ -65,23 +66,23 @@ export function handleLotteryRegistered(event: LotteryRegistered): void {
     reg = new Registry(REGISTRY_ID);
     reg.totalLotteries = BigInt.zero();
   }
+
   reg.totalLotteries = reg.totalLotteries.plus(BigInt.fromI32(1));
   reg.latestLottery = event.params.lottery;
   reg.save();
 
-  const lotAddr = event.params.lottery;
-  const id = lotAddr.toHexString();
-
+  const id = event.params.lottery.toHexString();
   let lot = Lottery.load(id);
+
+  // This entity is typically created earlier by handleLotteryDeployed (deployer),
+  // but we still support registry-only creation for robustness.
   if (lot == null) {
     lot = new Lottery(id);
-    lot.typeId = event.params.typeId;
-    lot.creator = event.params.creator;
-    lot.registeredAt = event.block.timestamp;
     lot.sold = BigInt.zero();
     lot.ticketRevenue = BigInt.zero();
   }
 
+  // Canonical registry metadata
   lot.typeId = event.params.typeId;
   lot.creator = event.params.creator;
   lot.registeredAt = event.block.timestamp;
@@ -101,9 +102,7 @@ export function handleLotteryRegistered(event: LotteryRegistered): void {
   e.registryIndex = event.params.index;
   e.save();
 
-  // Spawn template for SingleWinnerLottery only (typeId == 1)
-  if (event.params.typeId.equals(TYPE_SINGLE_WINNER)) {
-    // lotAddr is already an Address
-    SingleWinnerLotteryTemplate.create(lotAddr);
-  }
+  // NOTE: Template creation moved to singlewinnerdeployer.ts (LotteryDeployed)
+  // to avoid missing early lottery events (e.g., FundingConfirmed) that occur
+  // before LotteryRegistered in the same transaction.
 }
