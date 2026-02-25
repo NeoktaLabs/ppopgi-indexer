@@ -1,3 +1,4 @@
+// singlewinnerlottery.ts
 import { Address, BigInt, Bytes } from "@graphprotocol/graph-ts";
 import {
   CallbackRejected,
@@ -42,124 +43,110 @@ function mkUserLotteryId(lottery: Address, user: Address): string {
   return lottery.toHexString() + "-" + user.toHexString();
 }
 
-// ----------------------------
-// No-redeploy double-count fix
-// ----------------------------
-// bytes4(keccak256("claim()")) = 0x4e71d92d
-const CLAIM_SELECTOR = "0x4e71d92d";
-
-function txSelector(txInput: Bytes): string {
-  if (txInput.length < 4) return "";
-  // subarray() returns Uint8Array; convert back to Bytes before calling toHexString()
-  return Bytes.fromUint8Array(txInput.subarray(0, 4)).toHexString();
-}
-
-function isClaimTx(input: Bytes): bool {
-  return txSelector(input) == CLAIM_SELECTOR;
-}
-
 function loadOrCreateLottery(addr: Address, ts: BigInt): Lottery {
   const id = addr.toHexString();
   let lot = Lottery.load(id);
+
+  // Only do on-chain reads when the entity doesn't exist yet.
+  // After that, we prefer deterministic event-sourced updates (faster + less brittle).
   if (lot == null) {
     lot = new Lottery(id);
     lot.typeId = BigInt.fromI32(1);
-    lot.creator = Address.zero();
+    lot.creator = Address.zero(); // overwritten by deployer/registry handlers or on-chain read below
     lot.registeredAt = ts;
     lot.sold = BigInt.zero();
     lot.ticketRevenue = BigInt.zero();
+
+    const c = SingleWinnerLottery.bind(addr);
+
+    const s = c.try_status();
+    if (!s.reverted) lot.status = s.value as i32;
+
+    const nm = c.try_name();
+    if (!nm.reverted) lot.name = nm.value;
+
+    const creator = c.try_creator();
+    if (!creator.reverted) lot.creator = creator.value;
+
+    const usdc = c.try_usdcToken();
+    if (!usdc.reverted) lot.usdcToken = usdc.value;
+
+    const feeRec = c.try_feeRecipient();
+    if (!feeRec.reverted) lot.feeRecipient = feeRec.value;
+
+    const feePct = c.try_protocolFeePercent();
+    if (!feePct.reverted) lot.protocolFeePercent = feePct.value;
+
+    const ent = c.try_entropy();
+    if (!ent.reverted) lot.entropy = ent.value;
+
+    const prov = c.try_entropyProvider();
+    if (!prov.reverted) lot.entropyProvider = prov.value;
+
+    const gas = c.try_callbackGasLimit();
+    if (!gas.reverted) lot.callbackGasLimit = gas.value;
+
+    const createdAt = c.try_createdAt();
+    if (!createdAt.reverted) lot.createdAt = createdAt.value;
+
+    const deadline = c.try_deadline();
+    if (!deadline.reverted) lot.deadline = deadline.value;
+
+    const ticketPrice = c.try_ticketPrice();
+    if (!ticketPrice.reverted) lot.ticketPrice = ticketPrice.value;
+
+    const winningPot = c.try_winningPot();
+    if (!winningPot.reverted) lot.winningPot = winningPot.value;
+
+    const minTickets = c.try_minTickets();
+    if (!minTickets.reverted) lot.minTickets = minTickets.value;
+
+    const maxTickets = c.try_maxTickets();
+    if (!maxTickets.reverted) lot.maxTickets = maxTickets.value;
+
+    const minBuy = c.try_minPurchaseAmount();
+    if (!minBuy.reverted) lot.minPurchaseAmount = minBuy.value;
+
+    const winner = c.try_winner();
+    if (!winner.reverted) lot.winner = winner.value;
+
+    const sel = c.try_selectedProvider();
+    if (!sel.reverted) lot.selectedProvider = sel.value;
+
+    const req = c.try_entropyRequestId();
+    if (!req.reverted) lot.entropyRequestId = req.value;
+
+    const drawAt = c.try_drawingRequestedAt();
+    if (!drawAt.reverted) lot.drawingRequestedAt = drawAt.value;
+
+    const soldAtDrawing = c.try_soldAtDrawing();
+    if (!soldAtDrawing.reverted) lot.soldAtDrawing = soldAtDrawing.value;
+
+    const soldAtCancel = c.try_soldAtCancel();
+    if (!soldAtCancel.reverted) lot.soldAtCancel = soldAtCancel.value;
+
+    const canceledAt = c.try_canceledAt();
+    if (!canceledAt.reverted) lot.canceledAt = canceledAt.value;
+
+    const cpr = c.try_creatorPotRefunded();
+    if (!cpr.reverted) lot.creatorPotRefunded = cpr.value;
+
+    const sold = c.try_getSold();
+    if (!sold.reverted) lot.sold = sold.value;
+
+    const reserved = c.try_totalReservedUSDC();
+    if (!reserved.reverted) lot.totalReservedUSDC = reserved.value;
+
+    lot.save();
   }
 
-  // Best-effort sync from contract for “100% match”
-  // NOTE: Do NOT read ticketRevenue from chain here, because we maintain it from TicketsPurchased events
-  // (otherwise it will get double-counted when we also add totalCost in the handler).
-  const c = SingleWinnerLottery.bind(addr);
-
-  const s = c.try_status();
-  if (!s.reverted) lot.status = s.value as i32;
-
-  const nm = c.try_name();
-  if (!nm.reverted) lot.name = nm.value;
-
-  const creator = c.try_creator();
-  if (!creator.reverted) lot.creator = creator.value;
-
-  const usdc = c.try_usdcToken();
-  if (!usdc.reverted) lot.usdcToken = usdc.value;
-
-  const feeRec = c.try_feeRecipient();
-  if (!feeRec.reverted) lot.feeRecipient = feeRec.value;
-
-  const feePct = c.try_protocolFeePercent();
-  if (!feePct.reverted) lot.protocolFeePercent = feePct.value;
-
-  const ent = c.try_entropy();
-  if (!ent.reverted) lot.entropy = ent.value;
-
-  const prov = c.try_entropyProvider();
-  if (!prov.reverted) lot.entropyProvider = prov.value;
-
-  const gas = c.try_callbackGasLimit();
-  if (!gas.reverted) lot.callbackGasLimit = gas.value; // already BigInt
-
-  const createdAt = c.try_createdAt();
-  if (!createdAt.reverted) lot.createdAt = createdAt.value; // already BigInt
-
-  const deadline = c.try_deadline();
-  if (!deadline.reverted) lot.deadline = deadline.value; // already BigInt
-
-  const ticketPrice = c.try_ticketPrice();
-  if (!ticketPrice.reverted) lot.ticketPrice = ticketPrice.value;
-
-  const winningPot = c.try_winningPot();
-  if (!winningPot.reverted) lot.winningPot = winningPot.value;
-
-  const minTickets = c.try_minTickets();
-  if (!minTickets.reverted) lot.minTickets = minTickets.value; // already BigInt
-
-  const maxTickets = c.try_maxTickets();
-  if (!maxTickets.reverted) lot.maxTickets = maxTickets.value; // already BigInt
-
-  const minBuy = c.try_minPurchaseAmount();
-  if (!minBuy.reverted) lot.minPurchaseAmount = minBuy.value; // already BigInt
-
-  const winner = c.try_winner();
-  if (!winner.reverted) lot.winner = winner.value;
-
-  const sel = c.try_selectedProvider();
-  if (!sel.reverted) lot.selectedProvider = sel.value;
-
-  const req = c.try_entropyRequestId();
-  if (!req.reverted) lot.entropyRequestId = req.value; // already BigInt
-
-  const drawAt = c.try_drawingRequestedAt();
-  if (!drawAt.reverted) lot.drawingRequestedAt = drawAt.value; // already BigInt
-
-  const soldAtDrawing = c.try_soldAtDrawing();
-  if (!soldAtDrawing.reverted) lot.soldAtDrawing = soldAtDrawing.value;
-
-  const soldAtCancel = c.try_soldAtCancel();
-  if (!soldAtCancel.reverted) lot.soldAtCancel = soldAtCancel.value;
-
-  const canceledAt = c.try_canceledAt();
-  if (!canceledAt.reverted) lot.canceledAt = canceledAt.value; // already BigInt
-
-  const cpr = c.try_creatorPotRefunded();
-  if (!cpr.reverted) lot.creatorPotRefunded = cpr.value;
-
-  const sold = c.try_getSold();
-  if (!sold.reverted) lot.sold = sold.value;
-
-  const reserved = c.try_totalReservedUSDC();
-  if (!reserved.reverted) lot.totalReservedUSDC = reserved.value;
-
-  lot.save();
-  return lot;
+  return lot as Lottery;
 }
 
 function loadOrCreateUserLottery(lottery: Lottery, user: Address, ts: BigInt, tx: Bytes): UserLottery {
   const id = mkUserLotteryId(Address.fromString(lottery.id), user);
   let ul = UserLottery.load(id);
+
   if (ul == null) {
     ul = new UserLottery(id);
     ul.lottery = lottery.id;
@@ -169,6 +156,7 @@ function loadOrCreateUserLottery(lottery: Lottery, user: Address, ts: BigInt, tx
     ul.ticketRefundAmount = BigInt.zero();
     ul.fundsClaimedAmount = BigInt.zero();
   }
+
   ul.updatedAt = ts;
   ul.updatedTx = tx;
   ul.save();
@@ -206,6 +194,7 @@ export function handleTicketsPurchased(event: TicketsPurchased): void {
 export function handleLotteryFinalized(event: LotteryFinalized): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
+  // event-sourced state updates
   lot.entropyRequestId = event.params.requestId;
   lot.selectedProvider = event.params.provider;
   lot.drawingRequestedAt = event.block.timestamp;
@@ -353,7 +342,7 @@ export function handleFundingConfirmed(event: FundingConfirmed): void {
 export function handleFundsClaimed(event: FundsClaimed): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
-  // Always store the event entity
+  // Always store the event entity (audit trail)
   const e = new FundsClaimedEvent(mkEventId(event.transaction.hash, event.logIndex));
   e.lottery = lot.id;
   e.user = event.params.user;
@@ -365,19 +354,14 @@ export function handleFundsClaimed(event: FundsClaimed): void {
   e.timestamp = event.block.timestamp;
   e.save();
 
-  // If claim() tx, handleClaimed() is canonical — skip rollup to avoid double count
-  if (isClaimTx(event.transaction.input)) return;
-
-  // Otherwise (legacy withdrawFunds()), count it
-  const ul = loadOrCreateUserLottery(lot, event.params.user, event.block.timestamp, event.transaction.hash);
-  ul.fundsClaimedAmount = ul.fundsClaimedAmount.plus(event.params.amount);
-  ul.save();
+  // IMPORTANT: Rollups are updated ONLY from Claimed() for correctness and to avoid double counting.
+  // (Legacy withdrawFunds() may still emit FundsClaimed, but we intentionally ignore it in rollups.)
 }
 
 export function handleTicketRefundClaimed(event: TicketRefundClaimed): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
-  // Always store the event entity
+  // Always store the event entity (audit trail)
   const e = new TicketRefundClaimedEvent(mkEventId(event.transaction.hash, event.logIndex));
   e.lottery = lot.id;
   e.user = event.params.user;
@@ -389,19 +373,14 @@ export function handleTicketRefundClaimed(event: TicketRefundClaimed): void {
   e.timestamp = event.block.timestamp;
   e.save();
 
-  // If claim() tx, handleClaimed() is canonical — skip rollup to avoid double count
-  if (isClaimTx(event.transaction.input)) return;
-
-  // Otherwise (legacy claimTicketRefund()), count it
-  const ul = loadOrCreateUserLottery(lot, event.params.user, event.block.timestamp, event.transaction.hash);
-  ul.ticketRefundAmount = ul.ticketRefundAmount.plus(event.params.amount);
-  ul.save();
+  // IMPORTANT: Rollups are updated ONLY from Claimed() for correctness and to avoid double counting.
+  // (Legacy claimTicketRefund() may still emit TicketRefundClaimed, but we intentionally ignore it in rollups.)
 }
 
 export function handleClaimed(event: Claimed): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
-  // Canonical rollup update (prevents double-counting with FundsClaimed/TicketRefundClaimed)
+  // Canonical rollup update
   const ul = loadOrCreateUserLottery(lot, event.params.user, event.block.timestamp, event.transaction.hash);
   ul.fundsClaimedAmount = ul.fundsClaimedAmount.plus(event.params.funds);
   ul.ticketRefundAmount = ul.ticketRefundAmount.plus(event.params.ticketRefund);
