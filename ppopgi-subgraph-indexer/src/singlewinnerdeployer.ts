@@ -1,3 +1,4 @@
+// singlewinnerdeployer.ts
 import { BigInt, Bytes } from "@graphprotocol/graph-ts";
 import {
   ConfigUpdated,
@@ -6,6 +7,7 @@ import {
 } from "../generated/SingleWinnerDeployer/SingleWinnerDeployer";
 
 import { Deployer, Lottery, DeployerEvent } from "../generated/schema";
+import { SingleWinnerLottery as SingleWinnerLotteryTemplate } from "../generated/templates";
 
 function mkEventId(tx: Bytes, logIndex: BigInt): string {
   return tx.toHexString() + "-" + logIndex.toString();
@@ -80,10 +82,11 @@ export function handleLotteryDeployed(event: LotteryDeployed): void {
   let lot = Lottery.load(id);
   if (lot == null) {
     lot = new Lottery(id);
-    // defaults until registry arrives
+
+    // Defaults until registry arrives
     lot.typeId = BigInt.fromI32(1);
     lot.creator = event.params.creator;
-    lot.registeredAt = event.block.timestamp; // placeholder
+    lot.registeredAt = event.block.timestamp; // placeholder; registry handler will overwrite
     lot.sold = BigInt.zero();
     lot.ticketRevenue = BigInt.zero();
   }
@@ -107,14 +110,19 @@ export function handleLotteryDeployed(event: LotteryDeployed): void {
   lot.ticketPrice = event.params.ticketPrice;
   lot.winningPot = event.params.winningPot;
 
-  // These are already BigInt in generated typings (uint64 -> BigInt)
+  // uint64 -> BigInt in generated typings
   lot.deadline = event.params.deadline;
   lot.minTickets = event.params.minTickets;
   lot.maxTickets = event.params.maxTickets;
 
+  // Ensure creator matches deployer event (canonical for this type)
   lot.creator = event.params.creator;
 
   lot.save();
+
+  // IMPORTANT: Spawn template here so we catch early lottery events (e.g., FundingConfirmed)
+  // which happen BEFORE LotteryRegistered in the deploy transaction.
+  SingleWinnerLotteryTemplate.create(lotAddr);
 
   // Deployer audit event row
   const e = new DeployerEvent(mkEventId(event.transaction.hash, event.logIndex));
@@ -140,7 +148,7 @@ export function handleLotteryDeployed(event: LotteryDeployed): void {
   e.feeRecipient = event.params.feeRecipient;
   e.protocolFeePercent = event.params.protocolFeePercent;
 
-  // already BigInt (uint64 -> BigInt)
+  // uint64 -> BigInt
   e.deadline = event.params.deadline;
   e.minTickets = event.params.minTickets;
   e.maxTickets = event.params.maxTickets;
