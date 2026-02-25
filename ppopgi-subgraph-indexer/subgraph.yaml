@@ -13,7 +13,7 @@ dataSources:
     source:
       address: "0xa916e20AbF4d57bCb98f7A845eb74f2EB4Dcbed2"
       abi: LotteryRegistry
-      startBlock: 39492000
+      startBlock: 39590950
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -41,7 +41,7 @@ dataSources:
     source:
       address: "0xAd0c8Ba0E4e519B4EA97cE945A20E2716dDbDf7D"
       abi: SingleWinnerDeployer
-      startBlock: 39492000
+      startBlock: 39590950
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
