@@ -23,6 +23,7 @@ dataSources:
         - Registrar
         - Lottery
         - RegistryEvent
+        - GlobalStats
       abis:
         - name: LotteryRegistry
           file: ./abis/LotteryRegistry.json
@@ -75,6 +76,7 @@ templates:
       entities:
         - Lottery
         - UserLottery
+        - GlobalStats
         - TicketPurchaseEvent
         - LotteryFinalizedEvent
         - WinnerPickedEvent
