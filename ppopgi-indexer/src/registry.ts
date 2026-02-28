@@ -6,12 +6,40 @@ import {
   RegistrarSet,
 } from "../generated/LotteryRegistry/LotteryRegistry";
 
-import { Registry, Registrar, Lottery, RegistryEvent } from "../generated/schema";
+import {
+  Registry,
+  Registrar,
+  Lottery,
+  RegistryEvent,
+  GlobalStats,
+} from "../generated/schema";
 
 const REGISTRY_ID = "registry";
+const GLOBAL_ID = "global";
 
 function mkEventId(tx: Bytes, logIndex: BigInt): string {
   return tx.toHexString() + "-" + logIndex.toString();
+}
+
+/**
+ * ✅ Load or create GlobalStats singleton
+ */
+function loadOrCreateGlobal(ts: BigInt, tx: Bytes): GlobalStats {
+  let g = GlobalStats.load(GLOBAL_ID);
+  if (g == null) {
+    g = new GlobalStats(GLOBAL_ID);
+    g.totalLotteriesCreated = BigInt.zero();
+    g.totalLotteriesSettled = BigInt.zero();
+    g.totalLotteriesCanceled = BigInt.zero();
+    g.totalTicketsSold = BigInt.zero();
+    g.totalTicketRevenueUSDC = BigInt.zero();
+    g.totalPrizesSettledUSDC = BigInt.zero();
+    g.activeVolumeUSDC = BigInt.zero();
+  }
+
+  g.updatedAt = ts;
+  g.updatedTx = tx;
+  return g as GlobalStats;
 }
 
 export function handleRegistryOwnershipTransferred(event: OwnershipTransferred): void {
@@ -70,6 +98,13 @@ export function handleLotteryRegistered(event: LotteryRegistered): void {
   reg.totalLotteries = reg.totalLotteries.plus(BigInt.fromI32(1));
   reg.latestLottery = event.params.lottery;
   reg.save();
+
+  /**
+   * ✅ GlobalStats: increment totalLotteriesCreated
+   */
+  const g = loadOrCreateGlobal(event.block.timestamp, event.transaction.hash);
+  g.totalLotteriesCreated = g.totalLotteriesCreated.plus(BigInt.fromI32(1));
+  g.save();
 
   const id = event.params.lottery.toHexString();
   let lot = Lottery.load(id);
