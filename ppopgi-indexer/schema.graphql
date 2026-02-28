@@ -1,28 +1,318 @@
-type LotteryRegistered @entity(immutable: true) {
-  id: Bytes!
-  index: BigInt! # uint256
-  typeId: BigInt! # uint256
-  lottery: Bytes! # address
-  creator: Bytes! # address
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
+type Registry @entity(immutable: false) {
+  id: ID!                       # "registry"
+  owner: Bytes
+  totalLotteries: BigInt!
+  latestLottery: Bytes
 }
 
-type OwnershipTransferred @entity(immutable: true) {
-  id: Bytes!
-  oldOwner: Bytes! # address
-  newOwner: Bytes! # address
-  blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
+type Registrar @entity(immutable: false) {
+  id: ID!                       # registrar address
+  authorized: Boolean!
+  updatedAt: BigInt!
+  updatedTx: Bytes!
 }
 
-type RegistrarSet @entity(immutable: true) {
-  id: Bytes!
-  registrar: Bytes! # address
-  authorized: Boolean! # bool
+type Deployer @entity(immutable: false) {
+  id: ID!                       # deployer address (single)
+  owner: Bytes
+
+  registry: Bytes
+  usdc: Bytes
+  entropy: Bytes
+  provider: Bytes
+  callbackGasLimit: BigInt
+  feeRecipient: Bytes
+  protocolFeePercent: BigInt
+
+  updatedAt: BigInt
+  updatedTx: Bytes
+}
+
+type Lottery @entity(immutable: false) {
+  id: ID!                       # lottery address
+
+  # Canonical registry metadata
+  typeId: BigInt!
+  creator: Bytes!               # from registry, but also equals contract creator() for your type=1
+  registeredAt: BigInt!
+  registryIndex: BigInt
+
+  # Creation snapshot from Deployer event (nice for correctness + future proof)
+  deployedBy: Bytes
+  deployedAt: BigInt
+  deployedTx: Bytes
+
+  # Config / constants per lottery
+  name: String
+  usdcToken: Bytes
+  feeRecipient: Bytes
+  entropy: Bytes
+  entropyProvider: Bytes
+  callbackGasLimit: BigInt
+  protocolFeePercent: BigInt
+
+  createdAt: BigInt
+  deadline: BigInt
+  ticketPrice: BigInt
+  winningPot: BigInt
+  minTickets: BigInt
+  maxTickets: BigInt
+  minPurchaseAmount: BigInt
+
+  # Live state
+  status: Int                    # 0..4 (FundingPending/Open/Drawing/Completed/Canceled)
+  sold: BigInt!
+  ticketRevenue: BigInt!
+
+  # Drawing state (contract vars)
+  winner: Bytes
+  selectedProvider: Bytes
+  entropyRequestId: BigInt
+  drawingRequestedAt: BigInt
+  soldAtDrawing: BigInt
+
+  # Cancel state
+  canceledAt: BigInt
+  soldAtCancel: BigInt
+  cancelReason: String
+  creatorPotRefunded: Boolean
+
+  # Accounting snapshots
+  totalReservedUSDC: BigInt
+}
+
+# ---- Per-lottery per-user rollup (derived from events) ----
+type UserLottery @entity(immutable: false) {
+  id: ID!                       # `${lottery}-${user}`
+  lottery: Lottery!
+  user: Bytes!
+
+  ticketsPurchased: BigInt!
+  usdcSpent: BigInt!
+
+  # refunds paid out (from Claimed / TicketRefundClaimed)
+  ticketRefundAmount: BigInt!
+  # funds claimed (winner/creator/protocol) from Claimed / FundsClaimed
+  fundsClaimedAmount: BigInt!
+
+  updatedAt: BigInt!
+  updatedTx: Bytes!
+}
+
+# ---- Typed events (full coverage) ----
+type RegistryEvent @entity(immutable: true) {
+  id: ID!                       # txHash-logIndex
+  kind: String!
+  registry: Bytes!
+  txHash: Bytes!
+  logIndex: BigInt!
   blockNumber: BigInt!
-  blockTimestamp: BigInt!
-  transactionHash: Bytes!
+  timestamp: BigInt!
+
+  # optional fields
+  oldOwner: Bytes
+  newOwner: Bytes
+  registrar: Bytes
+  authorized: Boolean
+  lottery: Bytes
+  typeId: BigInt
+  creator: Bytes
+  registryIndex: BigInt
+}
+
+type DeployerEvent @entity(immutable: true) {
+  id: ID!
+  kind: String!
+  deployer: Bytes!
+  txHash: Bytes!
+  logIndex: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+
+  # ownership
+  oldOwner: Bytes
+  newOwner: Bytes
+
+  # config
+  usdc: Bytes
+  entropy: Bytes
+  provider: Bytes
+  callbackGasLimit: BigInt
+  feeRecipient: Bytes
+  protocolFeePercent: BigInt
+
+  # lottery deployed
+  lottery: Bytes
+  creator: Bytes
+  winningPot: BigInt
+  ticketPrice: BigInt
+  name: String
+  entropyProvider: Bytes
+  deadline: BigInt
+  minTickets: BigInt
+  maxTickets: BigInt
+}
+
+type TicketPurchaseEvent @entity(immutable: true) {
+  id: ID!
+  lottery: Lottery!
+  buyer: Bytes!
+  count: BigInt!
+  totalCost: BigInt!
+  totalSold: BigInt!
+  rangeIndex: BigInt!
+  isNewRange: Boolean!
+
+  txHash: Bytes!
+  logIndex: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type LotteryFinalizedEvent @entity(immutable: true) {
+  id: ID!
+  lottery: Lottery!
+  requestId: BigInt!
+  totalSold: BigInt!
+  provider: Bytes!
+
+  txHash: Bytes!
+  logIndex: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type WinnerPickedEvent @entity(immutable: true) {
+  id: ID!
+  lottery: Lottery!
+  winner: Bytes!
+  winningTicketIndex: BigInt!
+  totalSold: BigInt!
+
+  txHash: Bytes!
+  logIndex: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type LotteryCanceledEvent @entity(immutable: true) {
+  id: ID!
+  lottery: Lottery!
+  reason: String!
+  sold: BigInt!
+  ticketRevenue: BigInt!
+  potRefund: BigInt!
+
+  txHash: Bytes!
+  logIndex: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type CallbackRejectedEvent @entity(immutable: true) {
+  id: ID!
+  lottery: Lottery!
+  sequenceNumber: BigInt!
+  reasonCode: Int!
+
+  txHash: Bytes!
+  logIndex: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type PrizeAllocatedEvent @entity(immutable: true) {
+  id: ID!
+  lottery: Lottery!
+  user: Bytes!
+  amount: BigInt!
+  reason: Int!                  # uint8 indexed
+
+  txHash: Bytes!
+  logIndex: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type RefundAllocatedEvent @entity(immutable: true) {
+  id: ID!
+  lottery: Lottery!
+  user: Bytes!
+  amount: BigInt!
+
+  txHash: Bytes!
+  logIndex: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type ProtocolFeesCollectedEvent @entity(immutable: true) {
+  id: ID!
+  lottery: Lottery!
+  amount: BigInt!
+
+  txHash: Bytes!
+  logIndex: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type FundingConfirmedEvent @entity(immutable: true) {
+  id: ID!
+  lottery: Lottery!
+  funder: Bytes!
+  amount: BigInt!
+
+  txHash: Bytes!
+  logIndex: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type FundsClaimedEvent @entity(immutable: true) {
+  id: ID!
+  lottery: Lottery!
+  user: Bytes!
+  amount: BigInt!
+
+  txHash: Bytes!
+  logIndex: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type TicketRefundClaimedEvent @entity(immutable: true) {
+  id: ID!
+  lottery: Lottery!
+  user: Bytes!
+  amount: BigInt!
+
+  txHash: Bytes!
+  logIndex: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type ClaimedEvent @entity(immutable: true) {
+  id: ID!
+  lottery: Lottery!
+  user: Bytes!
+  funds: BigInt!
+  ticketRefund: BigInt!
+  total: BigInt!
+
+  txHash: Bytes!
+  logIndex: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+type EmergencyRecoveryEvent @entity(immutable: true) {
+  id: ID!
+  lottery: Lottery!
+
+  txHash: Bytes!
+  logIndex: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
 }

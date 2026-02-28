@@ -1,8 +1,11 @@
-specVersion: 1.3.0
-indexerHints:
-  prune: auto
+specVersion: 1.0.0
+
 schema:
   file: ./schema.graphql
+
+indexerHints:
+  prune: auto
+
 dataSources:
   - kind: ethereum
     name: LotteryRegistry
@@ -10,15 +13,16 @@ dataSources:
     source:
       address: "0xa916e20AbF4d57bCb98f7A845eb74f2EB4Dcbed2"
       abi: LotteryRegistry
-      startBlock: 39488784
+      startBlock: 39590950
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
       language: wasm/assemblyscript
       entities:
-        - LotteryRegistered
-        - OwnershipTransferred
-        - RegistrarSet
+        - Registry
+        - Registrar
+        - Lottery
+        - RegistryEvent
       abis:
         - name: LotteryRegistry
           file: ./abis/LotteryRegistry.json
@@ -26,7 +30,92 @@ dataSources:
         - event: LotteryRegistered(indexed uint256,indexed uint256,indexed address,address)
           handler: handleLotteryRegistered
         - event: OwnershipTransferred(indexed address,indexed address)
-          handler: handleOwnershipTransferred
+          handler: handleRegistryOwnershipTransferred
         - event: RegistrarSet(indexed address,bool)
           handler: handleRegistrarSet
-      file: ./src/lottery-registry.ts
+      file: ./src/registry.ts
+
+  - kind: ethereum
+    name: SingleWinnerDeployer
+    network: etherlink-mainnet
+    source:
+      address: "0xAd0c8Ba0E4e519B4EA97cE945A20E2716dDbDf7D"
+      abi: SingleWinnerDeployer
+      startBlock: 39590950
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Deployer
+        - Lottery
+        - DeployerEvent
+      abis:
+        - name: SingleWinnerDeployer
+          file: ./abis/SingleWinnerDeployer.json
+      eventHandlers:
+        - event: ConfigUpdated(address,address,address,uint32,address,uint256)
+          handler: handleConfigUpdated
+        - event: DeployerOwnershipTransferred(indexed address,indexed address)
+          handler: handleDeployerOwnershipTransferred
+        - event: LotteryDeployed(indexed address,indexed address,uint256,uint256,string,address,address,address,uint32,address,uint256,uint64,uint64,uint64)
+          handler: handleLotteryDeployed
+      file: ./src/singlewinnerdeployer.ts
+
+templates:
+  - name: SingleWinnerLottery
+    kind: ethereum
+    network: etherlink-mainnet
+    source:
+      abi: SingleWinnerLottery
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Lottery
+        - UserLottery
+        - TicketPurchaseEvent
+        - LotteryFinalizedEvent
+        - WinnerPickedEvent
+        - LotteryCanceledEvent
+        - CallbackRejectedEvent
+        - PrizeAllocatedEvent
+        - RefundAllocatedEvent
+        - ProtocolFeesCollectedEvent
+        - FundingConfirmedEvent
+        - FundsClaimedEvent
+        - TicketRefundClaimedEvent
+        - ClaimedEvent
+        - EmergencyRecoveryEvent
+      abis:
+        - name: SingleWinnerLottery
+          file: ./abis/SingleWinnerLottery.json
+      eventHandlers:
+        - event: CallbackRejected(indexed uint64,uint8)
+          handler: handleCallbackRejected
+        - event: Claimed(indexed address,uint256,uint256,uint256)
+          handler: handleClaimed
+        - event: EmergencyRecovery()
+          handler: handleEmergencyRecovery
+        - event: FundingConfirmed(indexed address,uint256)
+          handler: handleFundingConfirmed
+        - event: FundsClaimed(indexed address,uint256)
+          handler: handleFundsClaimed
+        - event: LotteryCanceled(string,uint256,uint256,uint256)
+          handler: handleLotteryCanceled
+        - event: LotteryFinalized(uint64,uint256,address)
+          handler: handleLotteryFinalized
+        - event: PrizeAllocated(indexed address,uint256,indexed uint8)
+          handler: handlePrizeAllocated
+        - event: ProtocolFeesCollected(uint256)
+          handler: handleProtocolFeesCollected
+        - event: RefundAllocated(indexed address,uint256)
+          handler: handleRefundAllocated
+        - event: TicketRefundClaimed(indexed address,uint256)
+          handler: handleTicketRefundClaimed
+        - event: TicketsPurchased(indexed address,uint256,uint256,uint256,uint256,bool)
+          handler: handleTicketsPurchased
+        - event: WinnerPicked(indexed address,uint256,uint256)
+          handler: handleWinnerPicked
+      file: ./src/singlewinnerlottery.ts
