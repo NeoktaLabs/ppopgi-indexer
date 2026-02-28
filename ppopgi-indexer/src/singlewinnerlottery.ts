@@ -33,7 +33,7 @@ import {
   TicketRefundClaimedEvent,
   ClaimedEvent,
   EmergencyRecoveryEvent,
-  GlobalStats, // ✅ NEW
+  GlobalStats,
 } from "../generated/schema";
 
 const GLOBAL_ID = "global";
@@ -54,11 +54,14 @@ function loadOrCreateGlobal(ts: BigInt, tx: Bytes): GlobalStats {
   let g = GlobalStats.load(GLOBAL_ID);
   if (g == null) {
     g = new GlobalStats(GLOBAL_ID);
-    g.totalTicketsSold = BigInt.zero();
-    g.totalTicketRevenueUSDC = BigInt.zero();
 
+    // ✅ REQUIRED (schema non-null fields)
+    g.totalLotteriesCreated = BigInt.zero();
     g.totalLotteriesSettled = BigInt.zero();
     g.totalLotteriesCanceled = BigInt.zero();
+
+    g.totalTicketsSold = BigInt.zero();
+    g.totalTicketRevenueUSDC = BigInt.zero();
 
     g.totalPrizesSettledUSDC = BigInt.zero();
     g.activeVolumeUSDC = BigInt.zero();
@@ -74,8 +77,9 @@ function loadOrCreateGlobal(ts: BigInt, tx: Bytes): GlobalStats {
 }
 
 // status: 0 FundingPending, 1 Open, 2 Drawing, 3 Completed, 4 Canceled
+// ✅ "Active volume" should represent lotteries that are live (Open/Drawing).
 function isActiveStatus(s: i32): boolean {
-  return s == 0 || s == 1 || s == 2;
+  return s == 1 || s == 2;
 }
 
 function safeStatus(lot: Lottery): i32 {
@@ -89,16 +93,15 @@ function safePot(lot: Lottery): BigInt {
 }
 
 function safeMinus(a: BigInt, b: BigInt): BigInt {
-  // avoid negative underflow
   if (a.lt(b)) return BigInt.zero();
   return a.minus(b);
 }
 
 /**
  * ✅ Applies status transition & updates global rollups safely:
- * - activeVolumeUSDC: add pot when becomes active, subtract when leaves active
- * - settled: increments + adds prize settled amount (winningPot)
- * - canceled: increments
+ * - activeVolumeUSDC: add pot when becomes active (Open/Drawing), subtract when leaves active
+ * - settled: increments + adds prize settled amount (winningPot) when Completed
+ * - canceled: increments when Canceled
  */
 function applyStatusTransition(lot: Lottery, newStatus: i32, ts: BigInt, tx: Bytes): void {
   const oldStatus = safeStatus(lot);
@@ -122,9 +125,11 @@ function applyStatusTransition(lot: Lottery, newStatus: i32, ts: BigInt, tx: Byt
 
   // finalization rollups
   if (newStatus == 3) {
+    // Completed
     g.totalLotteriesSettled = g.totalLotteriesSettled.plus(BigInt.fromI32(1));
     g.totalPrizesSettledUSDC = g.totalPrizesSettledUSDC.plus(pot);
   } else if (newStatus == 4) {
+    // Canceled
     g.totalLotteriesCanceled = g.totalLotteriesCanceled.plus(BigInt.fromI32(1));
   }
 
@@ -139,10 +144,11 @@ function loadOrCreateLottery(addr: Address, ts: BigInt): Lottery {
   let lot = Lottery.load(id);
 
   // Only do on-chain reads when the entity doesn't exist yet.
+  // After that, we prefer deterministic event-sourced updates (faster + less brittle).
   if (lot == null) {
     lot = new Lottery(id);
     lot.typeId = BigInt.fromI32(1);
-    lot.creator = Address.zero();
+    lot.creator = Address.zero(); // overwritten by deployer/registry handlers or on-chain read below
     lot.registeredAt = ts;
     lot.sold = BigInt.zero();
     lot.ticketRevenue = BigInt.zero();
@@ -227,14 +233,11 @@ function loadOrCreateLottery(addr: Address, ts: BigInt): Lottery {
     const reserved = c.try_totalReservedUSDC();
     if (!reserved.reverted) lot.totalReservedUSDC = reserved.value;
 
-    // ✅ If it starts in an active status at creation time, include it in active volume
-    // (rare but safe; avoids missing volume)
-    const st = safeStatus(lot as Lottery);
-    if (isActiveStatus(st)) {
-      const g = loadOrCreateGlobal(ts, Bytes.empty());
-      g.activeVolumeUSDC = g.activeVolumeUSDC.plus(safePot(lot as Lottery));
-      g.save();
-    }
+    // NOTE:
+    // We do NOT mutate GlobalStats here, because:
+    // - It can cause double-counting if the subgraph replays / reorgs and the "first creation" heuristic changes.
+    // - Canonical rollups should be updated by canonical events:
+    //   FundingConfirmed (becomes Open), WinnerPicked (Completed), LotteryCanceled (Canceled), TicketsPurchased, etc.
 
     lot.save();
   }
@@ -271,7 +274,7 @@ export function handleTicketsPurchased(event: TicketsPurchased): void {
   lot.ticketRevenue = lot.ticketRevenue.plus(event.params.totalCost);
   lot.save();
 
-  // ✅ Global rollup (no double counting: ticket purchase event is canonical)
+  // ✅ Global rollup (canonical)
   const g = loadOrCreateGlobal(event.block.timestamp, event.transaction.hash);
   g.totalTicketsSold = g.totalTicketsSold.plus(event.params.count);
   g.totalTicketRevenueUSDC = g.totalTicketRevenueUSDC.plus(event.params.totalCost);
@@ -301,14 +304,12 @@ export function handleTicketsPurchased(event: TicketsPurchased): void {
 export function handleLotteryFinalized(event: LotteryFinalized): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
-  // event-sourced state updates
   lot.entropyRequestId = event.params.requestId;
   lot.selectedProvider = event.params.provider;
   lot.drawingRequestedAt = event.block.timestamp;
-
   lot.sold = event.params.totalSold;
 
-  // ✅ status transition (active volume is unchanged: active -> active)
+  // ✅ Open -> Drawing (active -> active): no net active-volume change
   applyStatusTransition(lot, 2, event.block.timestamp, event.transaction.hash);
 
   lot.save();
@@ -332,7 +333,7 @@ export function handleWinnerPicked(event: WinnerPicked): void {
   lot.winner = event.params.winner;
   lot.sold = event.params.totalSold;
 
-  // ✅ Completed: subtract from active volume + add to prizes settled + settled count
+  // ✅ Drawing -> Completed: subtract from active volume + add settled rollups
   applyStatusTransition(lot, 3, event.block.timestamp, event.transaction.hash);
 
   lot.save();
@@ -358,7 +359,7 @@ export function handleLotteryCanceled(event: LotteryCanceled): void {
   lot.ticketRevenue = event.params.ticketRevenue;
   lot.canceledAt = event.block.timestamp;
 
-  // ✅ Canceled: subtract from active volume + canceled count
+  // ✅ Open/Drawing -> Canceled: subtract from active volume + canceled rollup
   applyStatusTransition(lot, 4, event.block.timestamp, event.transaction.hash);
 
   lot.save();
@@ -440,7 +441,7 @@ export function handleProtocolFeesCollected(event: ProtocolFeesCollected): void 
 export function handleFundingConfirmed(event: FundingConfirmed): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
-  // ✅ Open: active -> active (but ensures correct status)
+  // ✅ FundingPending -> Open: add to active volume (pot becomes live)
   applyStatusTransition(lot, 1, event.block.timestamp, event.transaction.hash);
 
   lot.save();
@@ -490,7 +491,7 @@ export function handleTicketRefundClaimed(event: TicketRefundClaimed): void {
 export function handleClaimed(event: Claimed): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
-  // Canonical rollup update
+  // Canonical per-user rollup update
   const ul = loadOrCreateUserLottery(lot, event.params.user, event.block.timestamp, event.transaction.hash);
   ul.fundsClaimedAmount = ul.fundsClaimedAmount.plus(event.params.funds);
   ul.ticketRefundAmount = ul.ticketRefundAmount.plus(event.params.ticketRefund);
