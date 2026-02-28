@@ -66,20 +66,33 @@ function loadOrCreateGlobal(ts: BigInt, tx: Bytes): GlobalStats {
   return g as GlobalStats;
 }
 
+// Active = Open(1) or Drawing(2)
 function isActiveStatus(status: i32): boolean {
   return status == 1 || status == 2;
 }
 
+// ✅ No ternary (avoids AS compiler crash)
 function getStatusOrNeg1(lot: Lottery): i32 {
-  return lot.status == null ? -1 : (lot.status as i32);
+  if (lot.status == null) {
+    return -1;
+  }
+  return lot.status as i32;
 }
 
+// ✅ No ternary (avoids AS compiler crash)
 function getPotOr0(lot: Lottery): BigInt {
-  return lot.winningPot == null ? BigInt.zero() : (lot.winningPot as BigInt);
+  if (lot.winningPot == null) {
+    return BigInt.zero();
+  }
+  return lot.winningPot as BigInt;
 }
 
+// ✅ No ternary (avoids AS compiler crash)
 function safeSub(a: BigInt, b: BigInt): BigInt {
-  return a.lt(b) ? BigInt.zero() : a.minus(b);
+  if (a.lt(b)) {
+    return BigInt.zero();
+  }
+  return a.minus(b);
 }
 
 function loadOrCreateLottery(addr: Address, ts: BigInt): Lottery {
@@ -187,7 +200,12 @@ function loadOrCreateLottery(addr: Address, ts: BigInt): Lottery {
   return lot as Lottery;
 }
 
-function loadOrCreateUserLottery(lottery: Lottery, user: Address, ts: BigInt, tx: Bytes): UserLottery {
+function loadOrCreateUserLottery(
+  lottery: Lottery,
+  user: Address,
+  ts: BigInt,
+  tx: Bytes
+): UserLottery {
   const id = mkUserLotteryId(Address.fromString(lottery.id), user);
   let ul = UserLottery.load(id);
 
@@ -221,12 +239,19 @@ export function handleTicketsPurchased(event: TicketsPurchased): void {
   g.totalTicketRevenueUSDC = g.totalTicketRevenueUSDC.plus(event.params.totalCost);
   g.save();
 
-  const ul = loadOrCreateUserLottery(lot, event.params.buyer, event.block.timestamp, event.transaction.hash);
+  const ul = loadOrCreateUserLottery(
+    lot,
+    event.params.buyer,
+    event.block.timestamp,
+    event.transaction.hash
+  );
   ul.ticketsPurchased = ul.ticketsPurchased.plus(event.params.count);
   ul.usdcSpent = ul.usdcSpent.plus(event.params.totalCost);
   ul.save();
 
-  const e = new TicketPurchaseEvent(mkEventId(event.transaction.hash, event.logIndex));
+  const e = new TicketPurchaseEvent(
+    mkEventId(event.transaction.hash, event.logIndex)
+  );
   e.lottery = lot.id;
   e.buyer = event.params.buyer;
   e.count = event.params.count;
@@ -255,7 +280,9 @@ export function handleFundingConfirmed(event: FundingConfirmed): void {
     g.save();
   }
 
-  const e = new FundingConfirmedEvent(mkEventId(event.transaction.hash, event.logIndex));
+  const e = new FundingConfirmedEvent(
+    mkEventId(event.transaction.hash, event.logIndex)
+  );
   e.lottery = lot.id;
   e.funder = event.params.funder;
   e.amount = event.params.amount;
@@ -276,7 +303,9 @@ export function handleLotteryFinalized(event: LotteryFinalized): void {
   lot.status = 2;
   lot.save();
 
-  const e = new LotteryFinalizedEvent(mkEventId(event.transaction.hash, event.logIndex));
+  const e = new LotteryFinalizedEvent(
+    mkEventId(event.transaction.hash, event.logIndex)
+  );
   e.lottery = lot.id;
   e.requestId = event.params.requestId;
   e.totalSold = event.params.totalSold;
@@ -307,7 +336,9 @@ export function handleWinnerPicked(event: WinnerPicked): void {
   g.totalPrizesSettledUSDC = g.totalPrizesSettledUSDC.plus(pot);
   g.save();
 
-  const e = new WinnerPickedEvent(mkEventId(event.transaction.hash, event.logIndex));
+  const e = new WinnerPickedEvent(
+    mkEventId(event.transaction.hash, event.logIndex)
+  );
   e.lottery = lot.id;
   e.winner = event.params.winner;
   e.winningTicketIndex = event.params.winningTicketIndex;
@@ -339,7 +370,9 @@ export function handleLotteryCanceled(event: LotteryCanceled): void {
   g.totalLotteriesCanceled = g.totalLotteriesCanceled.plus(BigInt.fromI32(1));
   g.save();
 
-  const e = new LotteryCanceledEvent(mkEventId(event.transaction.hash, event.logIndex));
+  const e = new LotteryCanceledEvent(
+    mkEventId(event.transaction.hash, event.logIndex)
+  );
   e.lottery = lot.id;
   e.reason = event.params.reason;
   e.sold = event.params.sold;
@@ -355,7 +388,9 @@ export function handleLotteryCanceled(event: LotteryCanceled): void {
 export function handleCallbackRejected(event: CallbackRejected): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
-  const e = new CallbackRejectedEvent(mkEventId(event.transaction.hash, event.logIndex));
+  const e = new CallbackRejectedEvent(
+    mkEventId(event.transaction.hash, event.logIndex)
+  );
   e.lottery = lot.id;
   e.sequenceNumber = event.params.sequenceNumber;
   e.reasonCode = event.params.reasonCode as i32;
@@ -369,7 +404,9 @@ export function handleCallbackRejected(event: CallbackRejected): void {
 export function handlePrizeAllocated(event: PrizeAllocated): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
-  const e = new PrizeAllocatedEvent(mkEventId(event.transaction.hash, event.logIndex));
+  const e = new PrizeAllocatedEvent(
+    mkEventId(event.transaction.hash, event.logIndex)
+  );
   e.lottery = lot.id;
   e.user = event.params.user;
   e.amount = event.params.amount;
@@ -384,7 +421,9 @@ export function handlePrizeAllocated(event: PrizeAllocated): void {
 export function handleRefundAllocated(event: RefundAllocated): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
-  const e = new RefundAllocatedEvent(mkEventId(event.transaction.hash, event.logIndex));
+  const e = new RefundAllocatedEvent(
+    mkEventId(event.transaction.hash, event.logIndex)
+  );
   e.lottery = lot.id;
   e.user = event.params.user;
   e.amount = event.params.amount;
@@ -398,7 +437,9 @@ export function handleRefundAllocated(event: RefundAllocated): void {
 export function handleProtocolFeesCollected(event: ProtocolFeesCollected): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
-  const e = new ProtocolFeesCollectedEvent(mkEventId(event.transaction.hash, event.logIndex));
+  const e = new ProtocolFeesCollectedEvent(
+    mkEventId(event.transaction.hash, event.logIndex)
+  );
   e.lottery = lot.id;
   e.amount = event.params.amount;
   e.txHash = event.transaction.hash;
@@ -411,7 +452,9 @@ export function handleProtocolFeesCollected(event: ProtocolFeesCollected): void 
 export function handleFundsClaimed(event: FundsClaimed): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
-  const e = new FundsClaimedEvent(mkEventId(event.transaction.hash, event.logIndex));
+  const e = new FundsClaimedEvent(
+    mkEventId(event.transaction.hash, event.logIndex)
+  );
   e.lottery = lot.id;
   e.user = event.params.user;
   e.amount = event.params.amount;
@@ -425,7 +468,9 @@ export function handleFundsClaimed(event: FundsClaimed): void {
 export function handleTicketRefundClaimed(event: TicketRefundClaimed): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
-  const e = new TicketRefundClaimedEvent(mkEventId(event.transaction.hash, event.logIndex));
+  const e = new TicketRefundClaimedEvent(
+    mkEventId(event.transaction.hash, event.logIndex)
+  );
   e.lottery = lot.id;
   e.user = event.params.user;
   e.amount = event.params.amount;
@@ -439,7 +484,12 @@ export function handleTicketRefundClaimed(event: TicketRefundClaimed): void {
 export function handleClaimed(event: Claimed): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
-  const ul = loadOrCreateUserLottery(lot, event.params.user, event.block.timestamp, event.transaction.hash);
+  const ul = loadOrCreateUserLottery(
+    lot,
+    event.params.user,
+    event.block.timestamp,
+    event.transaction.hash
+  );
   ul.fundsClaimedAmount = ul.fundsClaimedAmount.plus(event.params.funds);
   ul.ticketRefundAmount = ul.ticketRefundAmount.plus(event.params.ticketRefund);
   ul.save();
@@ -460,7 +510,9 @@ export function handleClaimed(event: Claimed): void {
 export function handleEmergencyRecovery(event: EmergencyRecovery): void {
   const lot = loadOrCreateLottery(event.address, event.block.timestamp);
 
-  const e = new EmergencyRecoveryEvent(mkEventId(event.transaction.hash, event.logIndex));
+  const e = new EmergencyRecoveryEvent(
+    mkEventId(event.transaction.hash, event.logIndex)
+  );
   e.lottery = lot.id;
   e.txHash = event.transaction.hash;
   e.logIndex = event.logIndex;
