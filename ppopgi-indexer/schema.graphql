@@ -1,8 +1,39 @@
+# schema.graphql
+
 type Registry @entity(immutable: false) {
   id: ID!                       # "registry"
   owner: Bytes
   totalLotteries: BigInt!
   latestLottery: Bytes
+}
+
+"""
+✅ Global rollup for the homepage billboard (fast, scales to thousands+)
+- id is always "global"
+- Values are updated incrementally by event handlers (no need to load N lotteries)
+- All USDC amounts are in **micro-USDC** (6 decimals) to match your Lottery fields
+"""
+type GlobalStats @entity(immutable: false) {
+  id: ID!                       # "global"
+
+  # Lotteries
+  totalLotteriesCreated: BigInt!
+  totalLotteriesSettled: BigInt!
+  totalLotteriesCanceled: BigInt!
+
+  # Tickets / revenue
+  totalTicketsSold: BigInt!
+  totalTicketRevenueUSDC: BigInt!     # micro-USDC
+
+  # Prize volume (what you show as "Prizes Settled")
+  totalPrizesSettledUSDC: BigInt!     # micro-USDC (sum of winningPot when settled)
+
+  # "Active Volume" billboard metric (sum winningPot for active lotteries)
+  activeVolumeUSDC: BigInt!           # micro-USDC
+
+  # bookkeeping
+  updatedAt: BigInt!
+  updatedTx: Bytes!
 }
 
 type Registrar @entity(immutable: false) {
