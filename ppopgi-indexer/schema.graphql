@@ -62,6 +62,11 @@ type Deployer @entity(immutable: false) {
 type Lottery @entity(immutable: false) {
   id: ID!                       # lottery address
 
+  # ---- Indexer bookkeeping ----
+  # Used to prevent double template creation (spawn from deployer AND registry safely)
+  templateSpawned: Boolean!
+  indexedAt: BigInt             # optional: when we first spawned the template
+
   # Canonical registry metadata
   typeId: BigInt!
   creator: Bytes!               # from registry, but also equals contract creator() for your type=1
