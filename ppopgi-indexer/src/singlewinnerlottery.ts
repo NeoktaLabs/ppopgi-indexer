@@ -105,6 +105,11 @@ function loadOrCreateLottery(addr: Address, ts: BigInt): Lottery {
   if (lot == null) {
     lot = new Lottery(id);
 
+    // ✅ NEW required field (schema update)
+    // This mapping only runs inside the template datasource, so template is definitely spawned.
+    lot.templateSpawned = true;
+    lot.indexedAt = ts; // optional field in schema
+
     // required fields
     lot.typeId = BigInt.fromI32(1);
     lot.creator = Address.zero();
@@ -194,6 +199,13 @@ function loadOrCreateLottery(addr: Address, ts: BigInt): Lottery {
     if (!reserved.reverted) lot.totalReservedUSDC = reserved.value;
 
     lot.save();
+  } else {
+    // safety: if older data exists (pre-migration), ensure the required field is set
+    if (lot.templateSpawned == null) {
+      lot.templateSpawned = true;
+      lot.indexedAt = ts; // optional
+      lot.save();
+    }
   }
 
   return lot as Lottery;
