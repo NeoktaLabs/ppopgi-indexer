@@ -44,9 +44,7 @@ export function handleConfigUpdated(event: ConfigUpdated): void {
   d.entropy = event.params.entropy;
   d.provider = event.params.provider;
 
-  // callbackGasLimit is already BigInt in generated typings
   d.callbackGasLimit = event.params.callbackGasLimit;
-
   d.feeRecipient = event.params.feeRecipient;
   d.protocolFeePercent = event.params.protocolFeePercent;
 
@@ -65,17 +63,13 @@ export function handleConfigUpdated(event: ConfigUpdated): void {
   e.usdc = event.params.usdc;
   e.entropy = event.params.entropy;
   e.provider = event.params.provider;
-
-  // callbackGasLimit is already BigInt in generated typings
   e.callbackGasLimit = event.params.callbackGasLimit;
-
   e.feeRecipient = event.params.feeRecipient;
   e.protocolFeePercent = event.params.protocolFeePercent;
   e.save();
 }
 
 export function handleLotteryDeployed(event: LotteryDeployed): void {
-  // Upsert Lottery creation snapshot (may be created later by registry event too)
   const lotAddr = event.params.lottery;
   const id = lotAddr.toHexString();
 
@@ -86,56 +80,44 @@ export function handleLotteryDeployed(event: LotteryDeployed): void {
     // Defaults until registry arrives
     lot.typeId = BigInt.fromI32(1);
     lot.creator = event.params.creator;
-    lot.registeredAt = event.block.timestamp; // placeholder; registry handler will overwrite
+    lot.registeredAt = event.block.timestamp; // placeholder
     lot.sold = BigInt.zero();
     lot.ticketRevenue = BigInt.zero();
 
-    // ✅ NEW required field (schema update)
+    // ✅ required field
     lot.templateSpawned = false;
-  } else {
-    // safety: if older data exists (pre-migration), ensure the required field is set
-    if (lot.templateSpawned == null) {
-      lot.templateSpawned = false;
-    }
   }
 
   lot.deployedBy = event.address;
   lot.deployedAt = event.block.timestamp;
   lot.deployedTx = event.transaction.hash;
 
-  // Snapshot data from event
   lot.name = event.params.name;
   lot.usdcToken = event.params.usdc;
   lot.entropy = event.params.entropy;
   lot.entropyProvider = event.params.entropyProvider;
-
-  // callbackGasLimit is already BigInt in generated typings
   lot.callbackGasLimit = event.params.callbackGasLimit;
-
   lot.feeRecipient = event.params.feeRecipient;
   lot.protocolFeePercent = event.params.protocolFeePercent;
 
   lot.ticketPrice = event.params.ticketPrice;
   lot.winningPot = event.params.winningPot;
 
-  // uint64 -> BigInt in generated typings
   lot.deadline = event.params.deadline;
   lot.minTickets = event.params.minTickets;
   lot.maxTickets = event.params.maxTickets;
 
-  // Ensure creator matches deployer event (canonical for this type)
   lot.creator = event.params.creator;
 
-  // ✅ Spawn template once (needed to catch early lottery events in the same tx)
-  if (lot.templateSpawned == false) {
+  // ✅ Spawn template once
+  if (!lot.templateSpawned) {
     SingleWinnerLotteryTemplate.create(lotAddr);
     lot.templateSpawned = true;
-    lot.indexedAt = event.block.timestamp; // optional field in schema
+    lot.indexedAt = event.block.timestamp; // optional
   }
 
   lot.save();
 
-  // Deployer audit event row
   const e = new DeployerEvent(mkEventId(event.transaction.hash, event.logIndex));
   e.kind = "LotteryDeployed";
   e.deployer = event.address;
@@ -152,14 +134,9 @@ export function handleLotteryDeployed(event: LotteryDeployed): void {
   e.usdc = event.params.usdc;
   e.entropy = event.params.entropy;
   e.entropyProvider = event.params.entropyProvider;
-
-  // callbackGasLimit is already BigInt in generated typings
   e.callbackGasLimit = event.params.callbackGasLimit;
-
   e.feeRecipient = event.params.feeRecipient;
   e.protocolFeePercent = event.params.protocolFeePercent;
-
-  // uint64 -> BigInt
   e.deadline = event.params.deadline;
   e.minTickets = event.params.minTickets;
   e.maxTickets = event.params.maxTickets;
