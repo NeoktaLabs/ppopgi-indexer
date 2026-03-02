@@ -84,7 +84,7 @@ export function handleLotteryDeployed(event: LotteryDeployed): void {
     lot.sold = BigInt.zero();
     lot.ticketRevenue = BigInt.zero();
 
-    // ✅ required field
+    // ✅ required field in your newer schema
     lot.templateSpawned = false;
   }
 
@@ -106,6 +106,9 @@ export function handleLotteryDeployed(event: LotteryDeployed): void {
   lot.deadline = event.params.deadline;
   lot.minTickets = event.params.minTickets;
   lot.maxTickets = event.params.maxTickets;
+
+  // ✅ IMPORTANT: persist minPurchaseAmount from deployer event (prevents UI showing 0 until first on-chain read)
+  lot.minPurchaseAmount = event.params.minPurchaseAmount;
 
   lot.creator = event.params.creator;
 
@@ -140,6 +143,9 @@ export function handleLotteryDeployed(event: LotteryDeployed): void {
   e.deadline = event.params.deadline;
   e.minTickets = event.params.minTickets;
   e.maxTickets = event.params.maxTickets;
+
+  // ✅ keep deployer event complete too (requires schema field if you want it stored here)
+  e.minPurchaseAmount = event.params.minPurchaseAmount;
 
   e.save();
 }
