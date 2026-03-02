@@ -1,5 +1,3 @@
-# schema.graphql  (FULL FILE)
-
 type Registry @entity(immutable: false) {
   id: ID!                       # "registry"
   owner: Bytes
@@ -187,9 +185,6 @@ type DeployerEvent @entity(immutable: true) {
   deadline: BigInt
   minTickets: BigInt
   maxTickets: BigInt
-
-  # ✅ NEW (Option A)
-  minPurchaseAmount: BigInt
 }
 
 type TicketPurchaseEvent @entity(immutable: true) {
