@@ -1,4 +1,3 @@
-// src/singlewinnerdeployer.ts
 import { BigInt, Bytes } from "@graphprotocol/graph-ts";
 import {
   ConfigUpdated,
@@ -84,7 +83,7 @@ export function handleLotteryDeployed(event: LotteryDeployed): void {
     lot.sold = BigInt.zero();
     lot.ticketRevenue = BigInt.zero();
 
-    // required field in schema
+    // ✅ required field in your schema
     lot.templateSpawned = false;
   }
 
@@ -107,12 +106,13 @@ export function handleLotteryDeployed(event: LotteryDeployed): void {
   lot.minTickets = event.params.minTickets;
   lot.maxTickets = event.params.maxTickets;
 
-  // ✅ Option B: DO NOT set minPurchaseAmount here (not emitted in LotteryDeployed)
-  // It will be populated from on-chain read in singlewinnerlottery.ts (try_minPurchaseAmount)
+  // NOTE (Option B):
+  // LotteryDeployed does NOT emit minPurchaseAmount, so we do NOT set it here.
+  // It will be populated by the SingleWinnerLottery template on-chain read (try_minPurchaseAmount()).
 
   lot.creator = event.params.creator;
 
-  // Spawn template once
+  // ✅ Spawn template once
   if (!lot.templateSpawned) {
     SingleWinnerLotteryTemplate.create(lotAddr);
     lot.templateSpawned = true;
@@ -143,8 +143,6 @@ export function handleLotteryDeployed(event: LotteryDeployed): void {
   e.deadline = event.params.deadline;
   e.minTickets = event.params.minTickets;
   e.maxTickets = event.params.maxTickets;
-
-  // ✅ Option B: DO NOT set e.minPurchaseAmount either (not emitted in LotteryDeployed)
 
   e.save();
 }
