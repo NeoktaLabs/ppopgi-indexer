@@ -83,21 +83,18 @@ function loadOrCreateLottery(addr: Address, ts: BigInt): Lottery {
     lot = new Lottery(id);
 
     // ---- required defaults ----
-    // These defaults avoid null-handling altogether (works whether schema fields are nullable or required)
     lot.typeId = BigInt.fromI32(1);
     lot.creator = Address.zero();
     lot.registeredAt = ts;
 
-    // Your schema uses these as required:
     lot.sold = BigInt.zero();
     lot.ticketRevenue = BigInt.zero();
 
-    // IMPORTANT: give safe defaults even if on-chain reads revert
+    // IMPORTANT: safe defaults
     lot.status = 0; // FundingPending by default
     lot.winningPot = BigInt.zero();
 
     // If you added these fields in schema, keep them set here:
-    // (If they don't exist in schema, codegen would fail earlier, so safe.)
     lot.templateSpawned = true;
     lot.indexedAt = ts;
 
@@ -303,6 +300,13 @@ export function handleWinnerPicked(event: WinnerPicked): void {
   lot.winner = event.params.winner;
   lot.sold = event.params.totalSold;
   lot.status = 3; // Completed
+
+  // ✅ IMPORTANT: clear drawing-state fields to match contract
+  lot.entropyRequestId = BigInt.zero();
+  lot.selectedProvider = null;
+  lot.drawingRequestedAt = null;
+  lot.soldAtDrawing = null;
+
   lot.save();
 
   const g = loadOrCreateGlobal(event.block.timestamp, event.transaction.hash);
@@ -338,6 +342,13 @@ export function handleLotteryCanceled(event: LotteryCanceled): void {
   lot.ticketRevenue = event.params.ticketRevenue;
   lot.canceledAt = event.block.timestamp;
   lot.status = 4; // Canceled
+
+  // ✅ IMPORTANT: clear drawing-state fields to match contract
+  lot.entropyRequestId = BigInt.zero();
+  lot.selectedProvider = null;
+  lot.drawingRequestedAt = null;
+  lot.soldAtDrawing = null;
+
   lot.save();
 
   const g = loadOrCreateGlobal(event.block.timestamp, event.transaction.hash);
